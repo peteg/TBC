@@ -1,0 +1,84 @@
+TBC Design Desiderata
+
+== Nomenclature ==
+
+"Test suite" is a tree, nodes are labelled by testgroups (directory tree)
+"Testgroup" is a set of tests (guts of file)
+A test is something that returns a TestResult.
+
+"Sanity" tests the tests.
+
+data Test = HU | QC | Sanity (TestSuite -> Test)  | ...
+
+data TestGroup
+= TG [Test]
+| Failure FilePath Explanation
+
+data TestSuite
+= TG TestGroup
+| Tree [TestSuite]
+
+A TestFile is a compilable module, yielding a TestGroup or a TestSuite, as defined below.
+
+Abstract type TestResult
+ - skip, todo, success/failure, label, (include TestFile filename + line number)
+ - and optionally an explanation (can package QC refutations here, or the SKIP/TODO stuff from TAP)
+ - NB: provide HUnit interface at least
+
+data TestResult = ok | fail | warn | ...
+
+Abstract type TestSuiteResult
+ - corresponds to directory structure, so recursive
+ - leaves are TestResult
+ - can render to TAP
+ - can validate (isOK:: TestSuite
+
+type TestGroupResult = [TestResult]
+
+data TestSuiteResult
+= TGR TestGroupResult
+| TreeResult [TestSuiteResult]
+
+Desiderata
+
+- implicit
+- directory of tests in conventional place ($PROJECT/t)
+- minimal boilerplate on individual test files
+  - no requirement for module header (hierarchical module names screw us, tests can't be easily moved)
+  - convention for "test_", "prop_" - run them as HUnit and QC props.
+  - if you define mainPlannedTestSuite :: (Plan Int, IO TestSuiteResult), we assume you need control and we'll run it and merge the TAP with other tests. (also mainTestSuite)
+  - elsif you define mainTestGroup :: (Plan Int, IO TestGroupResult), we assume you need control and we'll run it and merge the TAP with other tests.
+  - elsif you define main :: IO (), we'll treat it as a single test that's passed if it compiles and runs without an exception (?) -- quick and dirty.
+
+- Test Classes, applying to test suites
+ - climb TestSuite tree until we find TestClass.hs
+ - contains vetTestSuite :: FilePath -> IO TestResult
+   - provide recursive enumTests :: FilePath -> (FilePath -> IO a) -> IO a
+ - this is really testing the test suite for various properties. more thought.
+
+t/
+000_sanity.hs
+td/
+ 00_t
+ 01_t
+ 02_myCleverMainTSR.hs
+
+000_sanity.hs:
+
+t = sanity (\t -> grepTS "test_ && prop_" f)
+
+sanity :: TestSuite -> IO TestResult
+allTestsAreSane :: Test- > IO TestResult
+
+
+CHECKED TO HERE
+
+- consistent reporting of passing/failing tests. if we've written N tests, that should be reflected in the report, even if they're broken.
+- graceful handling of uncompilable tests
+
+- TAP compliant, so we can hook it into buildbot or whatever - no more NIH stuff
+
+- ideally, relatively fast: this is not totally necessary, but loading every single testfile individually into ghci blows a bit.
+
+
+
