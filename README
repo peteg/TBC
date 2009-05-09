@@ -80,5 +80,3 @@ CHECKED TO HERE
 
 - ideally, relatively fast: this is not totally necessary, but loading every single testfile individually into ghci blows a bit.
 
-
-
