@@ -3,64 +3,108 @@
  - License     :  BSD3
  -}
 module Test.TBC.TestSuite
-    ( TestSuite
-    , TestGroup
-    , Test
+    ( TestSuite(..) -- FIXME abstract
+    , empty
+    , Test(..) -- FIXME abstract
+    , Result(..) -- FIXME abstract
     , TestFile
 
-    , conventionalTestSuiteIterator
+    , Config(..) -- FIXME abstract
+
     , runTestSuite
+    , renderTAP
     ) where
 
 -------------------------------------------------------------------
 -- Dependencies.
 -------------------------------------------------------------------
 
-import Test.TBC.FoldDir ( Iterator )
+import Control.Monad ( liftM )
 
 -------------------------------------------------------------------
 -- Types.
 -------------------------------------------------------------------
 
+-- | Global configuration.
+data Config
+    = MkConfig
+      { hc :: String
+      , hc_opts :: FilePath -> [String] -- ^ compiler flags as a function of the 'TestFile'.
+      }
+
 -- | A single test.
 data Test
-    = HUnit
-    | QuickCheck
-    | Sanity
+    = HUnit { tName :: String, tAssertion :: String }
+    | QuickCheck { tName :: String, tAssertion :: String }
+    | Sanity { tName :: String }
       deriving (Show)
 
 -- | The result of a single 'Test'.
-data TestResult
-    = TestResultSkip
+data Result
+    = TestResultNone -- ^ FIXME Haven't run it yet.
+    | TestResultSkip
     | TestResultToDo
     | TestResultSuccess
     | TestResultFailure
     | TestResultQuickCheckCounterExample
       deriving (Show)
 
--- | A flat collection of tests.
-newtype TestGroup = MkTG [(Test, Maybe TestResult)]
-
--- | A hierarchical collection of tests. Nodes are labelled by 'TestGroup's.
+-- | A hierarchical collection of tests.
 data TestSuite
     = TestSuiteEmpty -- ^ The empty 'TestSuite'
-    | TestSuiteError -- ^ An error occurred at this node.
-    | TestSuiteGroup TestGroup -- ^ Lift a 'TestGroup' into a 'TestSuite'.
+    | TestSuiteError { tsError :: String } -- ^ An error occurred at this node.
+    | TestSuiteGroup { tsFile :: FilePath, tsTests :: [(Test, Result)] } -- ^ A group of tests.
     | TestSuiteNode [TestSuite] -- ^ Hierarchy.
+      deriving (Show)
+
+empty :: TestSuite
+empty = TestSuiteEmpty
 
 type TestFile = FilePath
 
 -------------------------------------------------------------------
 
-conventionalTestSuiteIterator :: Iterator TestSuite
-conventionalTestSuiteIterator = undefined
+-- | FIXME this is a bit functorial, a bit monadic.
+runTestSuite :: Config -> TestSuite -> IO TestSuite
+runTestSuite config ts =
+    case ts of
+      TestSuiteEmpty {} -> return ts
+      TestSuiteError {} -> return ts
 
--------------------------------------------------------------------
+      TestSuiteGroup {} ->
+        do trs <- runTests config (tsFile ts) (tsTests ts)
+           return $ ts{tsTests = trs}
 
-runTestSuite :: TestSuite -> IO TestSuite
-runTestSuite = error "runTestSuite"
+      TestSuiteNode ts' -> TestSuiteNode `liftM` mapM (runTestSuite config) ts'
+
+runTests :: Config -> FilePath -> [(Test, Result)] -> IO [(Test, Result)]
+runTests config f ts =
+  do putStrLn $ "system $ " ++ hc config ++ " " ++ concat [ ' ' : a | a <- hc_opts config f ]
+     putStrLn ghci_stdin
+     error "runTests"
+  where
+     ghci_stdin = (foldr testCommand id ts) ""
+
+-- | What we need to ask GHCi in order to run this test.
+-- FIXME skip tests that already have results.
+testCommand :: (Test, Result) -> ShowS -> ShowS
+testCommand (t, TestResultNone) acc =
+    case t of
+      HUnit {} -> acc . hunit (tName t) (tAssertion t)
+      QuickCheck {} -> acc . quickcheck (tName t) (tAssertion t)
+testCommand _ acc = acc
+
+hunit :: String -> String -> ShowS
+hunit name assertion =
+    showString "-- >>" . showString name . showString "<<\n"
+  . showString "runTestTT $ TestCase " . showString assertion . showString "\n"
+
+quickcheck :: String -> String -> ShowS
+quickcheck name assertion =
+    showString "-- >>" . showString name . showString "<<\n"
+  . showString "test " . showString assertion . showString "\n"
 
 -------------------------------------------------------------------
 
 renderTAP :: TestSuite -> IO String
-renderTAP = error "renderTAP"
+renderTAP = return . show

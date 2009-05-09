@@ -14,20 +14,14 @@ Description:
  as HUnit and QuickCheck to do the actual testing. If the tests follow
  conventions, TBC lets you skip a lot of boilerplate.
 
+ This package provides a command-line driver.
+
 Extra-Source-Files: README
 
 source-repository head
   type:     git
   location: git://github.com/peteg/TBC.git
 
-Library
-  Build-depends: base, Cabal, directory, filepath, HUnit
-  Extensions:
-  Ghc-options: -Wall
-  Exposed-Modules: Test.TBC
-  Other-modules:
-    Test.TBC.Convention
-    Test.TBC.Conventions
-    Test.TBC.Drivers
-    Test.TBC.FoldDir
-    Test.TBC.TestSuite
+Executable tbc
+  Build-depends: TBC
+  main-is: TBC.hs

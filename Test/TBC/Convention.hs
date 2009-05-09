@@ -6,42 +6,48 @@
  -
  - Idea is to apply each of these tests to each line of a 'TestFile'
  - and collate the resulting 'TestSuite'.
+ -
+ - FIXME Import qualified.
  -}
-module Test.TBC.Conventions
+module Test.TBC.Convention
     ( Convention
-    , conventionalIterator
+    , hunit
+    , quickcheck
 --     , convention_mainPlannedTestSuite
 --     , convention_mainTestGroup
 --     , convention_main
+    , std
     ) where
 
 -------------------------------------------------------------------
 -- Dependencies.
 -------------------------------------------------------------------
 
-import Control.Monad ( liftM )
-import Data.Maybe ( catMaybes )
+import Data.Char ( isSpace )
 
-import Test.TBC.FoldDir ( Iterator, ItResult(..) )
-import Test.TBC.TestSuite ( Test(..), Result(..), TestSuite(..) )
+import Test.TBC.Conventions ( Convention )
+import Test.TBC.TestSuite ( Test(..) )
 
 -------------------------------------------------------------------
 
--- | A /convention/ maps a line in a 'TestFile' into a 'Test'.
-type Convention = String -> Maybe Test
+-- | FIXME this should follow the Haskell lexical conventions.
+mkTestName :: String -> String
+mkTestName = takeWhile (not . isSpace)
 
-applyConventions :: [Convention] -> String -> [Test]
-applyConventions cs = catMaybes . applyCs . lines
-    where applyCs ls = [ c l | l <- ls, c <- cs ]
+-------------------------------------------------------------------
 
-conventionalIterator :: [Convention] -> Iterator TestSuite
-conventionalIterator cs suite f =
-    do putStrLn $ "conventionIterator: " ++ f
-       ts <- applyConventions cs `liftM` readFile f
-       let suite' = TestSuiteGroup { tsFile = f, tsTests = [ (t, TestResultNone) | t <- ts ] }
-       return (Continue, TestSuiteNode [suite, suite'])
+hunit :: Convention
+hunit a@('t':'e':'s':'t':'_':s) = Just (HUnit { tName = mkTestName s, tAssertion = mkTestName a })
+hunit _ = Nothing
 
+----------------------------------------
 
+quickcheck :: Convention
+quickcheck a@('p':'r':'o':'p':'_':s) = Just (QuickCheck { tName = mkTestName s, tAssertion = mkTestName a })
+quickcheck _ = Nothing
+
+std :: [Convention]
+std = [hunit, quickcheck]
 
 {-
 This logic requires an overhaul of the types:

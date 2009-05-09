@@ -1,4 +1,15 @@
-TBC Design Desiderata
+= TBC: Test by Convention =
+
+== Gotchas ==
+
+Careful: don't compile the Setup.hs or GHC will build the whole
+project in the source dirs. FIXME add a shell script or something,
+investigate how Cabal bootstraps.
+
+- Assume the tests have the test framework in scope
+ - i.e. "import Test.QuickCheck" etc.
+
+= TBC Design Desiderata =
 
 == Nomenclature ==
 
@@ -7,16 +18,6 @@ TBC Design Desiderata
 A test is something that returns a TestResult.
 
 "Sanity" tests the tests.
-
-data Test = HU | QC | Sanity (TestSuite -> Test)  | ...
-
-data TestGroup
-= TG [Test]
-| Failure FilePath Explanation
-
-data TestSuite
-= TG TestGroup
-| Tree [TestSuite]
 
 A TestFile is a compilable module, yielding a TestGroup or a TestSuite, as defined below.
 
@@ -33,12 +34,6 @@ Abstract type TestSuiteResult
  - can render to TAP
  - can validate (isOK:: TestSuite
 
-type TestGroupResult = [TestResult]
-
-data TestSuiteResult
-= TGR TestGroupResult
-| TreeResult [TestSuiteResult]
-
 Desiderata
 
 - implicit
@@ -46,6 +41,7 @@ Desiderata
 - minimal boilerplate on individual test files
   - no requirement for module header (hierarchical module names screw us, tests can't be easily moved)
   - convention for "test_", "prop_" - run them as HUnit and QC props.
+   - problem: if the user provides a type sig, we find the test twice.
   - if you define mainPlannedTestSuite :: (Plan Int, IO TestSuiteResult), we assume you need control and we'll run it and merge the TAP with other tests. (also mainTestSuite)
   - elsif you define mainTestGroup :: (Plan Int, IO TestGroupResult), we assume you need control and we'll run it and merge the TAP with other tests.
   - elsif you define main :: IO (), we'll treat it as a single test that's passed if it compiles and runs without an exception (?) -- quick and dirty.
@@ -79,6 +75,3 @@ CHECKED TO HERE
 - TAP compliant, so we can hook it into buildbot or whatever - no more NIH stuff
 
 - ideally, relatively fast: this is not totally necessary, but loading every single testfile individually into ghci blows a bit.
-
-
-
