@@ -1,9 +1,5 @@
-import Distribution.PackageDescription
 import Distribution.Simple
-import Distribution.Simple.LocalBuildInfo
+import Test.TBC
 
 main = defaultMainWithHooks hooks
-    where hooks = simpleUserHooks { runTests = tbcTests }
-
-tbcTests :: Args -> Bool -> PackageDescription -> LocalBuildInfo -> IO ()
-tbcTests = error "FIXME tbcTests"
+    where hooks = simpleUserHooks { runTests = tbcCabal }

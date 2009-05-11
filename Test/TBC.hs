@@ -3,11 +3,12 @@
  - License     :  BSD3
  -}
 module Test.TBC
-    ( module Test.TBC.TestSuite
+    ( module Test.TBC.Convention
+    , module Test.TBC.Drivers
+    , module Test.TBC.TestSuite
     ) where
 
--------------------------------------------------------------------
--- Dependencies.
--------------------------------------------------------------------
-
+import Test.TBC.Convention
+import Test.TBC.Conventions
+import Test.TBC.Drivers
 import Test.TBC.TestSuite
