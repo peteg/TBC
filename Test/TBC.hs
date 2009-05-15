@@ -31,12 +31,15 @@ import Test.TBC.TestSuite as TestSuite
 -------------------------------------------------------------------
 
 -- | FIXME Bells and whistles driver.
-tbcWithHooks :: [Convention] -> Driver -> FilePath -> IO ()
-tbcWithHooks convs driver = foldTree (conventionalTester convs driver tapRender) ()
+tbcWithHooks :: [Convention] -> Renderer -> Driver -> FilePath -> IO ()
+tbcWithHooks convs renderer driver f =
+  do s@(_run, _succeeded) <- foldTree (conventionalTester convs driver renderer) (0, 0) f
+     putStrLn $ renderEnd renderer s
+     return ()
 
 -- | FIXME Conventional driver.
 tbc :: Driver -> FilePath -> IO ()
-tbc = tbcWithHooks Conv.std
+tbc = tbcWithHooks Conv.std quietRender
 
 ----------------------------------------
 -- Cabal support.
@@ -53,7 +56,7 @@ defaultMain = DS.defaultMainWithHooks hooks
 tbcCabal :: DS.Args -> Bool -> PackageDescription -> LocalBuildInfo -> IO ()
 tbcCabal _args _wtf pkg_descr localbuildinfo =
     do d <- ghci cmd flags
-       tbc d "t/" -- FIXME generalise
+       tbc d "Tests/" -- FIXME generalise
        hci_close d
        return ()
   where

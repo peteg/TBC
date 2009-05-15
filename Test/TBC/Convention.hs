@@ -11,7 +11,9 @@
  - FIXME tests that appear in block comments {- -} are still picked up.
  -}
 module Test.TBC.Convention
-    ( hunit
+    ( mkTestName
+    , booltest
+    , hunit
     , quickcheck
 --     , convention_mainPlannedTestSuite
 --     , convention_mainTestGroup
@@ -24,6 +26,7 @@ module Test.TBC.Convention
 -------------------------------------------------------------------
 
 import Data.Char ( isAlpha, isDigit )
+import Data.List -- ( isPrefixOf )
 
 import Test.TBC.Drivers ( Driver(..) )
 import Test.TBC.TestSuite ( Convention, Result(..), Test(..) )
@@ -36,8 +39,32 @@ mkTestName = takeWhile (\c -> or (map ($c) [isAlpha, isDigit, ('_' ==)]))
 
 -------------------------------------------------------------------
 
+-- | The test should yield 'True'. FIXME Note this should work for
+-- both @Bool@ and @IO Bool@.
+booltest :: Convention
+booltest _f a@('t':'e':'s':'t':'_':_) =
+    Just $ Test
+             { tName = name
+             , tRun = run_booltest
+             }
+  where
+    name = mkTestName a
+
+    run_booltest d =
+      do r <- hci_send_cmd d $ "seq " ++ name ++ " " ++ name ++ "\n"
+         return $ if findTrue r
+                    then TestResultSuccess
+                    else TestResultFailure r
+
+    findTrue r = last r == show True
+
+booltest _ _ = Nothing
+
+----------------------------------------
+
+-- FIXME needs some love from someone who cares.
 hunit :: Convention
-hunit _f a@('t':'e':'s':'t':'_':_) =
+hunit _f a@('h':'u':'n':'i':'t':'_':_) =
     Just $ Test
              { tName = name
              , tRun = run_hunit_test
@@ -46,9 +73,9 @@ hunit _f a@('t':'e':'s':'t':'_':_) =
     name = mkTestName a
 
     run_hunit_test d =
-      do r <- hci_send_cmd d $ "runTestTT $ TestCase $ " ++ name ++ "\n"
+      do r <- hci_send_cmd d $ "seq " ++ name ++ " $ performTestCase $ assert $ " ++ name ++ "\n"
          -- FIXME Grep
-         return TestResultSkip
+         return $ TestResultFailure r
 hunit _ _ = Nothing
 
 ----------------------------------------
@@ -56,7 +83,7 @@ hunit _ _ = Nothing
 quickcheck :: Convention
 quickcheck _f a@('p':'r':'o':'p':'_':_) =
     Just $ Test
-             { tName = a
+             { tName = name
              , tRun = run_quickcheck_test
              }
   where
@@ -64,14 +91,19 @@ quickcheck _f a@('p':'r':'o':'p':'_':_) =
 
     run_quickcheck_test d =
       do r <- hci_send_cmd d $ "test " ++ name ++ "\n"
-         -- FIXME Grep
-         return TestResultSkip
+         return $ if findOK r
+                    then TestResultSuccess
+                    else TestResultFailure r
+
+    findOK (l:_) = "OK" `isInfixOf` l
+    findOK _     = False
+
 quickcheck _ _ = Nothing
 
 ----------------------------------------
 
 std :: [Convention]
-std = [hunit, quickcheck]
+std = [booltest, hunit, quickcheck]
 
 {-
 FIXME

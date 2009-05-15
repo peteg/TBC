@@ -6,28 +6,29 @@ module Test.TBC.TestSuite
     ( Convention
     , Test(..)
     , Result(..)
-    , Renderer
+    , Renderer(..)
 
     , foldTree
 
     , applyConventions
     , conventionalTester
     , tapRender
+    , quietRender
     ) where
 
 -------------------------------------------------------------------
 -- Dependencies.
 -------------------------------------------------------------------
 
-import Control.Monad ( liftM, when )
+import Control.Monad ( liftM, foldM )
 
 import Data.Maybe ( catMaybes )
-import Data.List ( isInfixOf, nub )
+import Data.List ( nub )
 
 import System.Directory ( Permissions(searchable), getDirectoryContents, getPermissions )
 import System.FilePath ( (</>) )
 
-import Test.TBC.Drivers ( Driver(hci_send_cmd) )
+import Test.TBC.Drivers ( Driver(hci_load_file) )
 
 -------------------------------------------------------------------
 -- Types.
@@ -36,8 +37,6 @@ import Test.TBC.Drivers ( Driver(hci_send_cmd) )
 -- | A /convention/ maps a line in a 'TestFile' into a function that
 -- runs the test.
 type Convention = FilePath -> String -> Maybe Test
-
-type Renderer = Test -> Result -> String
 
 -- | A single test.
 -- FIXME probably needs line numbers sprinkled all through this
@@ -53,10 +52,10 @@ instance Eq Test where
 -- | The result of a single 'Test'.
 data Result
     = TestResultSkip
+    | TestResultSkipRestOfDirectory
     | TestResultToDo
     | TestResultSuccess
-    | TestResultFailure
-    | TestResultQuickCheckCounterExample
+    | TestResultFailure { msg :: [String] }
       deriving (Show)
 
 -------------------------------------------------------------------
@@ -95,21 +94,25 @@ applyConventions :: [Convention] -> FilePath -> String -> [Test]
 applyConventions cs f = catMaybes . applyCs . lines
     where applyCs ls = [ c f l | l <- ls, c <- cs ]
 
-conventionalTester :: [Convention] -> Driver -> Renderer -> Iterator ()
-conventionalTester cs driver renderer _ f =
-  do putStrLn $ "conventionIterator: " ++ f
+conventionalTester :: [Convention] -> Driver -> Renderer -> Iterator (Int, Int)
+conventionalTester cs driver renderer s@(run, succeeded) f =
+  do -- putStrLn $ "conventionIterator: " ++ f
      ts <- applyConventions cs f `liftM` readFile f
-     cout <- hci_send_cmd driver load_file
-     when (not ("Ok, modules loaded" `isInfixOf` last cout)) $
-       error "Compilation problems." -- FIXME
-     mapM_ runTest (nub ts)
-     return (Continue, ()) -- FIXME
+     mCout <- hci_load_file driver f
+     s' <- case mCout of
+             [] -> foldM runTest s (nub ts)
+             cout -> do putStrLn $ renderCompilationFailure renderer s f ts cout
+                        return (run + 1, succeeded)
+     return (Continue, s') -- FIXME can tests stop the traversal?
   where
-    load_file = ":l " ++ f ++ "\n"
-
-    runTest t =
+    runTest (run', succeeded') t =
       do r <- tRun t driver
-         putStrLn (renderer t r)
+         putStr (renderTest renderer run' f t r)
+         return ( run + 1
+                , case r of
+                    TestResultSuccess -> succeeded' + 1
+                    _                 -> succeeded'
+                )
 
 {-
 This logic requires an overhaul of the types:
@@ -121,5 +124,70 @@ This logic requires an overhaul of the types:
 
 -------------------------------------------------------------------
 
-tapRender :: Test -> Result -> String
-tapRender = error "renderTAP"
+-- | FIXME A renderer...
+-- Convention: responsible for putting in all the newlines.
+-- FIXME needs to provide a state type.
+data Renderer
+    = Renderer
+      { renderBegin :: String
+      , renderTest :: Int -- ^ Global test number
+                   -> FilePath -- ^ TestFile
+                   -> Test
+                   -> Result
+                   -> String
+      , renderCompilationFailure :: (Int, Int) -- ^ Global test number FIXME
+                                 -> FilePath -- ^ TestFile
+                                 -> [Test] -- ^ Tests in the file
+                                 -> [String] -- ^ Output from the Haskell system
+                                 -> String
+      , renderEnd :: (Int, Int) -> String
+      }
+
+tapRender :: Renderer
+tapRender =
+    Renderer
+    { renderBegin = ""
+    , renderTest = tapR
+    , renderCompilationFailure = tapCF
+    , renderEnd = tapE
+    }
+  where
+    tid i f t = show i ++ " - " ++ f ++ ":" ++ tName t
+
+    tapR i f t r =
+        case r of
+          TestResultFailure strs -> "not ok " ++ tid i f t ++ "\n" ++ rFail strs
+          TestResultSuccess -> "ok " ++ tid i f t ++ "\n"
+        where
+          rFail strs = unlines [ '#':' ':s | s <- strs ]
+
+    tapCF i f ts cout =
+        "not ok # compilation failed: " ++ f ++ "\n"
+      ++ unlines (cout ++ ["# Tests skipped:"] ++ [ "# " ++ tName t | t <- ts ])
+
+    tapE (run, _succeeded) = "0.." ++ show (run - 1)
+
+----------------------------------------
+
+quietRender :: Renderer
+quietRender =
+    Renderer
+    { renderBegin = ""
+    , renderTest = quietR
+    , renderCompilationFailure = quietCF
+    , renderEnd = quietE
+    }
+  where
+    quietR i f t r =
+        case r of
+          TestResultFailure strs -> "not ok " ++ tid ++ "\n" ++ rFail strs
+          TestResultSuccess -> ""
+        where
+          tid = show i ++ " - " ++ f ++ ":" ++ tName t
+          rFail strs = unlines [ '#':' ':s | s <- strs ]
+
+    quietCF i f ts cout =
+        "** Compilation failed: " ++ f ++ "\n"
+      ++ unlines (cout ++ [" ** Tests skipped:"] ++ [ ' ' : tName t | t <- ts ])
+
+    quietE (run, succeeded) = "Passed " ++ show succeeded ++ " / " ++ show run

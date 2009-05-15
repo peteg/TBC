@@ -9,6 +9,18 @@ investigate how Cabal bootstraps.
 - Assume the tests have the test framework in scope
  - i.e. "import Test.QuickCheck" etc.
 
+- add emacs-haskell like smarts for finding the .cabal file (root of the project)
+- add an executable
+ - rough semantics: run all tests below the current dir
+ - need to set GHCi's current dir appropriately, ala emacs-haskell
+- allow it to use cabal-built objects from dist/build
+- handle being ^C'd - kill the slave process too.
+- command-line flags: verbosity, test name, ...
+- include line number info
+- investigate the GHCi header bug
+- HUnit support needs some love from someone who cares
+
+
 = TBC Design Desiderata =
 
 == Nomenclature ==

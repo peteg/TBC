@@ -26,6 +26,7 @@ import System.Process ( runInteractiveProcess, waitForProcess )
 data Driver
     = MkDriver
       { hci_send_cmd :: String -> IO [String] -- ^ FIXME exec and return lines of response.
+      , hci_load_file :: String -> IO [String] -- ^ FIXME exec and return lines of response.
       , hci_close :: IO ExitCode
       }
 
@@ -49,16 +50,24 @@ ghci cmd flags =
      -- FIXME we maybe have to drain it first.
      hClose herr
 
+     let load_file f =
+           do cout <- ghci_sync hin hout (":l " ++ f ++ "\n")
+              if not (null cout) && "Ok, modules loaded" `isInfixOf` last cout
+                then return []
+                else return cout
+
      return $ MkDriver
                 { hci_send_cmd = ghci_sync hin hout
+                , hci_load_file = load_file
                 , hci_close = waitForProcess hpid
                 }
 
 ghci_sync :: Handle -> Handle -> String -> IO [String]
 ghci_sync hin hout inp =
-  do putStrLn $ "--Sync----------------------------------"
-     putStr inp
-     putStrLn $ "----------------------------------------"
+  do
+--      putStrLn $ "--Sync----------------------------------"
+--      putStr inp
+--      putStrLn $ "----------------------------------------"
 
      -- FIXME do we really need the separate thread?
      -- Get output + sync
@@ -73,8 +82,8 @@ ghci_sync hin hout inp =
      -- Synchronize
      hc_output <- lint_output `liftM` takeMVar outMVar
 
-     putStrLn $ ">> Output <<"
-     putStr (unlines hc_output)
+--      putStrLn $ ">> Output <<"
+--      putStr (unlines hc_output)
 
      return hc_output
   where
@@ -93,7 +102,6 @@ ghci_sync hin hout inp =
         where
           sync =
               do l <- hGetLine h
---                 putStrLn $ "ghci>>> " ++ l
                  if done `isInfixOf` l
                    then return []
                    else (l:) `liftM` sync
