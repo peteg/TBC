@@ -19,10 +19,13 @@ module Test.TBC
 -- Dependencies.
 -------------------------------------------------------------------
 
-import Distribution.PackageDescription
+import Distribution.Package ( packageId )
+import Distribution.PackageDescription ( PackageDescription, allBuildInfo )
 import qualified Distribution.Simple as DS
 import Distribution.Simple.GHC ( ghcOptions )
-import Distribution.Simple.LocalBuildInfo
+import Distribution.Simple.LocalBuildInfo ( LocalBuildInfo, buildDir, withPrograms )
+import Distribution.Simple.Program ( ghcProgram, lookupProgram, programPath )
+import Distribution.Text ( display )
 
 import Test.TBC.Convention as Conv
 import Test.TBC.Drivers as Drivers
@@ -52,14 +55,23 @@ defaultMain = DS.defaultMainWithHooks hooks
 
 -- | A driver compatible with Cabal's 'runTests' hook.
 -- FIXME assume we're running in the top-level project directory.
--- FIXME join with the process on exit
+-- FIXME generalise to Hugs, etc.
 tbcCabal :: DS.Args -> Bool -> PackageDescription -> LocalBuildInfo -> IO ()
 tbcCabal _args _wtf pkg_descr localbuildinfo =
-    do d <- ghci cmd flags
-       tbc d "Tests/" -- FIXME generalise
-       hci_close d
-       return ()
+    do case cmd of
+         Nothing -> putStrLn "GHC not found."
+         Just hc_cmd ->
+           do d <- ghci hc_cmd flags
+              tbc d "Tests/" -- FIXME generalise
+              hci_close d
+              return ()
   where
-    cmd = "ghci" -- FIXME generalise
-    flags = ghcOptions localbuildinfo (head (allBuildInfo pkg_descr)) (buildDir localbuildinfo) -- FIXME allBuildInfo
---      ghci_opts = "-v0" : ghcOptions localbuildinfo (head (allBuildInfo pkg_descr)) (buildDir localbuildinfo) -- FIXME allBuildInfo
+    cmd = fmap programPath (lookupProgram ghcProgram (withPrograms localbuildinfo))
+
+    -- The tests are part of the package.
+    pkgid = packageId pkg_descr
+
+    flags = "-v1"
+              : "--interactive"
+              : "-package-name" : display pkgid
+              : ghcOptions localbuildinfo (head (allBuildInfo pkg_descr)) (buildDir localbuildinfo) -- FIXME allBuildInfo

@@ -108,7 +108,7 @@ conventionalTester cs driver renderer s@(run, succeeded) f =
     runTest (run', succeeded') t =
       do r <- tRun t driver
          putStr (renderTest renderer run' f t r)
-         return ( run + 1
+         return ( run' + 1
                 , case r of
                     TestResultSuccess -> succeeded' + 1
                     _                 -> succeeded'
@@ -123,6 +123,10 @@ This logic requires an overhaul of the types:
 -}
 
 -------------------------------------------------------------------
+
+-- Renderers
+-- FIXME Separate module?
+-- FIXME parameterise by verbosity. Perhaps only need the TAP one then.
 
 -- | FIXME A renderer...
 -- Convention: responsible for putting in all the newlines.
@@ -188,6 +192,6 @@ quietRender =
 
     quietCF i f ts cout =
         "** Compilation failed: " ++ f ++ "\n"
-      ++ unlines (cout ++ [" ** Tests skipped:"] ++ [ ' ' : tName t | t <- ts ])
+      ++ unlines (cout ++ ["", "** Tests skipped:"] ++ [ ' ' : tName t | t <- ts ])
 
     quietE (run, succeeded) = "Passed " ++ show succeeded ++ " / " ++ show run
