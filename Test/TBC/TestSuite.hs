@@ -4,58 +4,78 @@
  -}
 module Test.TBC.TestSuite
     ( TestSuite(..) -- FIXME abstract
+    , TestGroup(..) -- FIXME
     , empty
     , Test(..) -- FIXME abstract
     , Result(..) -- FIXME abstract
     , TestFile
-
-    , Config(..) -- FIXME abstract
+    , Convention
 
     , runTestSuite
     , renderTAP
+
+    , conventionalIterator
     ) where
 
 -------------------------------------------------------------------
 -- Dependencies.
 -------------------------------------------------------------------
 
-import Control.Monad ( liftM )
+import Control.Monad ( liftM, when )
+
+import Data.Maybe ( catMaybes )
+import Data.List ( isInfixOf, nub )
+
+import System.IO -- ( hClose, hFlush, hGetContents, hPutStr )
+
+import Test.TBC.Drivers ( Driver(hci_send_cmd) )
+import Test.TBC.FoldDir ( Iterator, ItResult(..) )
 
 -------------------------------------------------------------------
 -- Types.
 -------------------------------------------------------------------
 
--- | Global configuration.
-data Config
-    = MkConfig
-      { hc :: String
-      , hc_opts :: FilePath -> [String] -- ^ compiler flags as a function of the 'TestFile'.
-      }
+-- | A /convention/ maps a line in a 'TestFile' into a function that
+-- runs the test.
+type Convention = FilePath -> String -> Maybe Test
 
 -- | A single test.
 data Test
-    = HUnit { tName :: String, tAssertion :: String }
-    | QuickCheck { tName :: String, tAssertion :: String }
-    | Sanity { tName :: String }
-      deriving (Show)
+    = Test
+      { tName :: String
+      , tRun :: Driver -> IO Result
+      }
+
+instance Eq Test where
+    t == t' = tName t == tName t'
+
+data TestGroup
+    = MkTestGroup
+      { tgFile :: FilePath
+      , tgTests :: [Test]
+      }
+
+-- | A hierarchical collection of tests.
+data TestSuite
+    = TestSuiteEmpty -- ^ The empty 'TestSuite'
+    | TestSuiteError { tsError :: String } -- ^ An error occurred at this node. FIXME TOSS
+    | TestSuiteGroup TestGroup
+    | TestSuiteNode [TestSuite] -- ^ Hierarchy.
 
 -- | The result of a single 'Test'.
 data Result
-    = TestResultNone -- ^ FIXME Haven't run it yet.
-    | TestResultSkip
+    = TestResultSkip
     | TestResultToDo
     | TestResultSuccess
     | TestResultFailure
     | TestResultQuickCheckCounterExample
       deriving (Show)
 
--- | A hierarchical collection of tests.
-data TestSuite
-    = TestSuiteEmpty -- ^ The empty 'TestSuite'
-    | TestSuiteError { tsError :: String } -- ^ An error occurred at this node.
-    | TestSuiteGroup { tsFile :: FilePath, tsTests :: [(Test, Result)] } -- ^ A group of tests.
-    | TestSuiteNode [TestSuite] -- ^ Hierarchy.
-      deriving (Show)
+data TestGroupResult
+    = MkTestGroupResult
+      { tgrFile :: FilePath
+      , tgrTestsResults :: [(Test, Result)]
+      }
 
 empty :: TestSuite
 empty = TestSuiteEmpty
@@ -65,46 +85,68 @@ type TestFile = FilePath
 -------------------------------------------------------------------
 
 -- | FIXME this is a bit functorial, a bit monadic.
-runTestSuite :: Config -> TestSuite -> IO TestSuite
-runTestSuite config ts =
-    case ts of
-      TestSuiteEmpty {} -> return ts
-      TestSuiteError {} -> return ts
-
-      TestSuiteGroup {} ->
-        do trs <- runTests config (tsFile ts) (tsTests ts)
-           return $ ts{tsTests = trs}
-
-      TestSuiteNode ts' -> TestSuiteNode `liftM` mapM (runTestSuite config) ts'
-
-runTests :: Config -> FilePath -> [(Test, Result)] -> IO [(Test, Result)]
-runTests config f ts =
-  do putStrLn $ "system $ " ++ hc config ++ " " ++ concat [ ' ' : a | a <- hc_opts config f ]
-     putStrLn ghci_stdin
-     error "runTests"
+runTestSuite :: Driver -> TestSuite -> IO ()
+runTestSuite driver ts0 =
+  -- FIXME bracket, exceptions
+  do rTS ts0
+--     hc_on_exit config
   where
-     ghci_stdin = (foldr testCommand id ts) ""
+    load_file f = ":l " ++ f ++ "\n"
 
--- | What we need to ask GHCi in order to run this test.
--- FIXME skip tests that already have results.
-testCommand :: (Test, Result) -> ShowS -> ShowS
-testCommand (t, TestResultNone) acc =
-    case t of
-      HUnit {} -> acc . hunit (tName t) (tAssertion t)
-      QuickCheck {} -> acc . quickcheck (tName t) (tAssertion t)
-testCommand _ acc = acc
+    rTS ts =
+      case ts of
+        TestSuiteEmpty {} -> return ()
+        TestSuiteError {} -> return ()
 
-hunit :: String -> String -> ShowS
-hunit name assertion =
-    showString "-- >>" . showString name . showString "<<\n"
-  . showString "runTestTT $ TestCase " . showString assertion . showString "\n"
+        TestSuiteGroup tg ->
+          do cout <- hci_send_cmd driver (load_file (tgFile tg))
+             when (not ("Ok, modules loaded" `isInfixOf` last cout)) $
+                  error "Compilation problems."
 
-quickcheck :: String -> String -> ShowS
-quickcheck name assertion =
-    showString "-- >>" . showString name . showString "<<\n"
-  . showString "test " . showString assertion . showString "\n"
+             trs <- mapM (runTest driver) (tgTests tg)
+             return ()
+--              return $ ts{tsTests = trs}
+
+        TestSuiteNode ts' -> mapM_ rTS ts'
+
+-- | Run the 'Test's in a 'TestFile'.
+-- FIXME GHCi strings hardwired.
+-- FIXME need the TestFile any more?
+runTest :: Driver -> Test -> IO (Test, Result)
+runTest driver t =
+  do r <- tRun t driver
+     return (t, r)
 
 -------------------------------------------------------------------
 
 renderTAP :: TestSuite -> IO String
-renderTAP = return . show
+renderTAP = error "renderTAP"
+
+-------------------------------------------------------------------
+
+
+
+-- | Apply a list of conventions to the guts of a 'TestFile'.
+applyConventions :: [Convention] -> FilePath -> String -> [Test]
+applyConventions cs f = catMaybes . applyCs . lines
+    where applyCs ls = [ c f l | l <- ls, c <- cs ]
+
+-- FIXME hierarchy needs some help from foldDir
+conventionalIterator :: [Convention] -> Iterator TestSuite
+conventionalIterator cs suite f =
+    do putStrLn $ "conventionIterator: " ++ f
+       ts <- applyConventions cs f `liftM` readFile f
+       let suite' = TestSuiteGroup (MkTestGroup { tgFile = f
+                                                , tgTests = nub ts })
+       return (Continue, TestSuiteNode [suite, suite'])
+
+
+
+
+{-
+This logic requires an overhaul of the types:
+
+  - if you define mainPlannedTestSuite :: (Plan Int, IO TestSuiteResult), we assume you need control and we'll run it and merge the TAP with other tests. (also mainTestSuite)
+  - elsif you define mainTestGroup :: (Plan Int, IO TestGroupResult), we assume you need control and we'll run it and merge the TAP with other tests.
+  - elsif you define main :: IO (), we'll treat it as a single test that's passed if it compiles and runs without an exception (?) -- quick and dirty.
+-}

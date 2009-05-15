@@ -10,9 +10,9 @@ it1 n x _f
     | otherwise = return (Continue, x + 1)
 
 -- FIXME UNIXism.
--- test_FoldDir_1 :: IO Bool
+test_FoldDir_1 :: Assertion
 test_FoldDir_1 =
-    do i <- foldTree (it1 n) 0 "/usr/bin"
-       assertEqual "FoldDir visits exactly the right number of files" n i
+   do i <- foldTree (it1 n) 0 "/usr/bin"
+      assertEqual "FoldDir visits exactly the right number of files" n i
   where
     n = 10
