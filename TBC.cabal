@@ -28,5 +28,4 @@ Library
   Other-modules:
     Test.TBC.Convention
     Test.TBC.Drivers
-    Test.TBC.FoldDir
     Test.TBC.TestSuite

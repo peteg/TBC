@@ -19,8 +19,6 @@ module Test.TBC
 -- Dependencies.
 -------------------------------------------------------------------
 
-import Control.Monad ( (>=>) )
-
 import Distribution.PackageDescription
 import qualified Distribution.Simple as DS
 import Distribution.Simple.GHC ( ghcOptions )
@@ -29,17 +27,12 @@ import Distribution.Simple.LocalBuildInfo
 import Test.TBC.Convention as Conv
 import Test.TBC.Drivers as Drivers
 import Test.TBC.TestSuite as TestSuite
-import Test.TBC.FoldDir ( foldTree )
 
 -------------------------------------------------------------------
 
 -- | FIXME Bells and whistles driver.
 tbcWithHooks :: [Convention] -> Driver -> FilePath -> IO ()
-tbcWithHooks convs config =
-    foldTree (conventionalIterator convs) TestSuite.empty
-      >=> runTestSuite config
---       >=> renderTAP
---       >=> putStrLn
+tbcWithHooks convs driver = foldTree (conventionalTester convs driver tapRender) ()
 
 -- | FIXME Conventional driver.
 tbc :: Driver -> FilePath -> IO ()
