@@ -11,7 +11,7 @@ Synopsis: Testing By Convention
 Description:
 
  TBC is a harness for running tests, relying on other libraries such
- as HUnit and QuickCheck to do the actual testing. If the tests follow
+ as QuickCheck to do the actual testing. If the tests follow
  conventions, TBC lets you skip a lot of boilerplate.
 
 Extra-Source-Files: README
@@ -21,13 +21,11 @@ source-repository head
   location: git://github.com/peteg/TBC.git
 
 Library
-  Build-depends: base, Cabal, directory, filepath, HUnit
+  Build-depends: base, Cabal, directory, filepath, HUnit, process
   Extensions:
   Ghc-options: -Wall
   Exposed-Modules: Test.TBC
   Other-modules:
     Test.TBC.Convention
-    Test.TBC.Conventions
     Test.TBC.Drivers
-    Test.TBC.FoldDir
     Test.TBC.TestSuite

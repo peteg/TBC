@@ -3,108 +3,195 @@
  - License     :  BSD3
  -}
 module Test.TBC.TestSuite
-    ( TestSuite(..) -- FIXME abstract
-    , empty
-    , Test(..) -- FIXME abstract
-    , Result(..) -- FIXME abstract
-    , TestFile
+    ( Convention
+    , Test(..)
+    , Result(..)
+    , Renderer(..)
 
-    , Config(..) -- FIXME abstract
+    , foldTree
 
-    , runTestSuite
-    , renderTAP
+    , applyConventions
+    , conventionalTester
+    , tapRender
+    , quietRender
     ) where
 
 -------------------------------------------------------------------
 -- Dependencies.
 -------------------------------------------------------------------
 
-import Control.Monad ( liftM )
+import Control.Monad ( liftM, foldM )
+
+import Data.Maybe ( catMaybes )
+import Data.List ( nub )
+
+import System.Directory ( Permissions(searchable), getDirectoryContents, getPermissions )
+import System.FilePath ( (</>) )
+
+import Test.TBC.Drivers ( Driver(hci_load_file) )
 
 -------------------------------------------------------------------
 -- Types.
 -------------------------------------------------------------------
 
--- | Global configuration.
-data Config
-    = MkConfig
-      { hc :: String
-      , hc_opts :: FilePath -> [String] -- ^ compiler flags as a function of the 'TestFile'.
-      }
+-- | A /convention/ maps a line in a 'TestFile' into a function that
+-- runs the test.
+type Convention = FilePath -> String -> Maybe Test
 
 -- | A single test.
+-- FIXME probably needs line numbers sprinkled all through this
 data Test
-    = HUnit { tName :: String, tAssertion :: String }
-    | QuickCheck { tName :: String, tAssertion :: String }
-    | Sanity { tName :: String }
-      deriving (Show)
+    = Test
+      { tName :: String
+      , tRun :: Driver -> IO Result
+      }
+
+instance Eq Test where
+    t == t' = tName t == tName t'
 
 -- | The result of a single 'Test'.
 data Result
-    = TestResultNone -- ^ FIXME Haven't run it yet.
-    | TestResultSkip
+    = TestResultSkip
+    | TestResultSkipRestOfDirectory
     | TestResultToDo
     | TestResultSuccess
-    | TestResultFailure
-    | TestResultQuickCheckCounterExample
+    | TestResultFailure { msg :: [String] }
       deriving (Show)
-
--- | A hierarchical collection of tests.
-data TestSuite
-    = TestSuiteEmpty -- ^ The empty 'TestSuite'
-    | TestSuiteError { tsError :: String } -- ^ An error occurred at this node.
-    | TestSuiteGroup { tsFile :: FilePath, tsTests :: [(Test, Result)] } -- ^ A group of tests.
-    | TestSuiteNode [TestSuite] -- ^ Hierarchy.
-      deriving (Show)
-
-empty :: TestSuite
-empty = TestSuiteEmpty
-
-type TestFile = FilePath
 
 -------------------------------------------------------------------
 
--- | FIXME this is a bit functorial, a bit monadic.
-runTestSuite :: Config -> TestSuite -> IO TestSuite
-runTestSuite config ts =
-    case ts of
-      TestSuiteEmpty {} -> return ts
-      TestSuiteError {} -> return ts
+data ItResult = Continue | Done
+                deriving (Show)
 
-      TestSuiteGroup {} ->
-        do trs <- runTests config (tsFile ts) (tsTests ts)
-           return $ ts{tsTests = trs}
+type Iterator a = a -> FilePath -> IO (ItResult, a)
 
-      TestSuiteNode ts' -> TestSuiteNode `liftM` mapM (runTestSuite config) ts'
-
-runTests :: Config -> FilePath -> [(Test, Result)] -> IO [(Test, Result)]
-runTests config f ts =
-  do putStrLn $ "system $ " ++ hc config ++ " " ++ concat [ ' ' : a | a <- hc_opts config f ]
-     putStrLn ghci_stdin
-     error "runTests"
+-- | Visit all files in a directory tree. Note we don't invoke the
+-- iterator on directories, only on files.
+foldTree :: Iterator a -> a -> FilePath -> IO a
+foldTree iter initSeed path = snd `liftM` fold initSeed path
   where
-     ghci_stdin = (foldr testCommand id ts) ""
+    fold seed subpath = getUsefulContents subpath >>= walk seed subpath
 
--- | What we need to ask GHCi in order to run this test.
--- FIXME skip tests that already have results.
-testCommand :: (Test, Result) -> ShowS -> ShowS
-testCommand (t, TestResultNone) acc =
-    case t of
-      HUnit {} -> acc . hunit (tName t) (tAssertion t)
-      QuickCheck {} -> acc . quickcheck (tName t) (tAssertion t)
-testCommand _ acc = acc
+    walk seed _ [] = return (Continue, seed)
+    walk seed subpath (name:names) =
+      do let path' = subpath </> name
+         perms <- getPermissions path'
+         rs@(r, seed') <- if searchable perms
+                            then fold seed path' -- It's a directory, Jim.
+                            else iter seed path' -- It's a file.
+         case r of
+           Continue -> walk seed' subpath names
+           Done     -> return rs
 
-hunit :: String -> String -> ShowS
-hunit name assertion =
-    showString "-- >>" . showString name . showString "<<\n"
-  . showString "runTestTT $ TestCase " . showString assertion . showString "\n"
-
-quickcheck :: String -> String -> ShowS
-quickcheck name assertion =
-    showString "-- >>" . showString name . showString "<<\n"
-  . showString "test " . showString assertion . showString "\n"
+    getUsefulContents :: FilePath -> IO [String]
+    getUsefulContents p =
+        filter (`notElem` [".", ".."]) `liftM` getDirectoryContents p
 
 -------------------------------------------------------------------
 
-renderTAP :: TestSuite -> IO String
-renderTAP = return . show
+-- | Apply a list of conventions to the guts of a 'TestFile'.
+applyConventions :: [Convention] -> FilePath -> String -> [Test]
+applyConventions cs f = catMaybes . applyCs . lines
+    where applyCs ls = [ c f l | l <- ls, c <- cs ]
+
+conventionalTester :: [Convention] -> Driver -> Renderer -> Iterator (Int, Int)
+conventionalTester cs driver renderer s@(run, succeeded) f =
+  do -- putStrLn $ "conventionIterator: " ++ f
+     ts <- applyConventions cs f `liftM` readFile f
+     mCout <- hci_load_file driver f
+     s' <- case mCout of
+             [] -> foldM runTest s (nub ts)
+             cout -> do putStrLn $ renderCompilationFailure renderer s f ts cout
+                        return (run + 1, succeeded)
+     return (Continue, s') -- FIXME can tests stop the traversal?
+  where
+    runTest (run', succeeded') t =
+      do r <- tRun t driver
+         putStr (renderTest renderer run' f t r)
+         return ( run' + 1
+                , case r of
+                    TestResultSuccess -> succeeded' + 1
+                    _                 -> succeeded'
+                )
+
+{-
+This logic requires an overhaul of the types:
+
+  - if you define mainPlannedTestSuite :: (Plan Int, IO TestSuiteResult), we assume you need control and we'll run it and merge the TAP with other tests. (also mainTestSuite)
+  - elsif you define mainTestGroup :: (Plan Int, IO TestGroupResult), we assume you need control and we'll run it and merge the TAP with other tests.
+  - elsif you define main :: IO (), we'll treat it as a single test that's passed if it compiles and runs without an exception (?) -- quick and dirty.
+-}
+
+-------------------------------------------------------------------
+
+-- Renderers
+-- FIXME Separate module?
+-- FIXME parameterise by verbosity. Perhaps only need the TAP one then.
+
+-- | FIXME A renderer...
+-- Convention: responsible for putting in all the newlines.
+-- FIXME needs to provide a state type.
+data Renderer
+    = Renderer
+      { renderBegin :: String
+      , renderTest :: Int -- ^ Global test number
+                   -> FilePath -- ^ TestFile
+                   -> Test
+                   -> Result
+                   -> String
+      , renderCompilationFailure :: (Int, Int) -- ^ Global test number FIXME
+                                 -> FilePath -- ^ TestFile
+                                 -> [Test] -- ^ Tests in the file
+                                 -> [String] -- ^ Output from the Haskell system
+                                 -> String
+      , renderEnd :: (Int, Int) -> String
+      }
+
+tapRender :: Renderer
+tapRender =
+    Renderer
+    { renderBegin = ""
+    , renderTest = tapR
+    , renderCompilationFailure = tapCF
+    , renderEnd = tapE
+    }
+  where
+    tid i f t = show i ++ " - " ++ f ++ ":" ++ tName t
+
+    tapR i f t r =
+        case r of
+          TestResultFailure strs -> "not ok " ++ tid i f t ++ "\n" ++ rFail strs
+          TestResultSuccess -> "ok " ++ tid i f t ++ "\n"
+        where
+          rFail strs = unlines [ '#':' ':s | s <- strs ]
+
+    tapCF i f ts cout =
+        "not ok # compilation failed: " ++ f ++ "\n"
+      ++ unlines (cout ++ ["# Tests skipped:"] ++ [ "# " ++ tName t | t <- ts ])
+
+    tapE (run, _succeeded) = "0.." ++ show (run - 1)
+
+----------------------------------------
+
+quietRender :: Renderer
+quietRender =
+    Renderer
+    { renderBegin = ""
+    , renderTest = quietR
+    , renderCompilationFailure = quietCF
+    , renderEnd = quietE
+    }
+  where
+    quietR i f t r =
+        case r of
+          TestResultFailure strs -> "not ok " ++ tid ++ "\n" ++ rFail strs
+          TestResultSuccess -> ""
+        where
+          tid = show i ++ " - " ++ f ++ ":" ++ tName t
+          rFail strs = unlines [ '#':' ':s | s <- strs ]
+
+    quietCF i f ts cout =
+        "** Compilation failed: " ++ f ++ "\n"
+      ++ unlines (cout ++ ["", "** Tests skipped:"] ++ [ ' ' : tName t | t <- ts ])
+
+    quietE (run, succeeded) = "Passed " ++ show succeeded ++ " / " ++ show run

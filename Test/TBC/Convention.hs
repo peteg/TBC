@@ -8,9 +8,11 @@
  - and collate the resulting 'TestSuite'.
  -
  - FIXME Import qualified.
+ - FIXME tests that appear in block comments {- -} are still picked up.
  -}
 module Test.TBC.Convention
-    ( Convention
+    ( mkTestName
+    , booltest
     , hunit
     , quickcheck
 --     , convention_mainPlannedTestSuite
@@ -23,33 +25,89 @@ module Test.TBC.Convention
 -- Dependencies.
 -------------------------------------------------------------------
 
-import Data.Char ( isSpace )
+import Data.Char ( isAlpha, isDigit )
+import Data.List -- ( isPrefixOf )
 
-import Test.TBC.Conventions ( Convention )
-import Test.TBC.TestSuite ( Test(..) )
+import Test.TBC.Drivers ( Driver(..) )
+import Test.TBC.TestSuite ( Convention, Result(..), Test(..) )
 
 -------------------------------------------------------------------
 
 -- | FIXME this should follow the Haskell lexical conventions.
 mkTestName :: String -> String
-mkTestName = takeWhile (not . isSpace)
+mkTestName = takeWhile (\c -> or (map ($c) [isAlpha, isDigit, ('_' ==)]))
 
 -------------------------------------------------------------------
 
+-- | The test should yield 'True'. FIXME Note this should work for
+-- both @Bool@ and @IO Bool@.
+booltest :: Convention
+booltest _f a@('t':'e':'s':'t':'_':_) =
+    Just $ Test
+             { tName = name
+             , tRun = run_booltest
+             }
+  where
+    name = mkTestName a
+
+    run_booltest d =
+      do r <- hci_send_cmd d $ "seq " ++ name ++ " " ++ name ++ "\n"
+         return $ if findTrue r
+                    then TestResultSuccess
+                    else TestResultFailure r
+
+    findTrue r = last r == show True
+
+booltest _ _ = Nothing
+
+----------------------------------------
+
+-- FIXME needs some love from someone who cares.
 hunit :: Convention
-hunit a@('t':'e':'s':'t':'_':s) = Just (HUnit { tName = mkTestName s, tAssertion = mkTestName a })
-hunit _ = Nothing
+hunit _f a@('h':'u':'n':'i':'t':'_':_) =
+    Just $ Test
+             { tName = name
+             , tRun = run_hunit_test
+             }
+  where
+    name = mkTestName a
+
+    run_hunit_test d =
+      do r <- hci_send_cmd d $ "seq " ++ name ++ " $ performTestCase $ assert $ " ++ name ++ "\n"
+         -- FIXME Grep
+         return $ TestResultFailure r
+hunit _ _ = Nothing
 
 ----------------------------------------
 
 quickcheck :: Convention
-quickcheck a@('p':'r':'o':'p':'_':s) = Just (QuickCheck { tName = mkTestName s, tAssertion = mkTestName a })
-quickcheck _ = Nothing
+quickcheck _f a@('p':'r':'o':'p':'_':_) =
+    Just $ Test
+             { tName = name
+             , tRun = run_quickcheck_test
+             }
+  where
+    name = mkTestName a
+
+    run_quickcheck_test d =
+      do r <- hci_send_cmd d $ "test " ++ name ++ "\n"
+         return $ if findOK r
+                    then TestResultSuccess
+                    else TestResultFailure r
+
+    findOK (l:_) = "OK" `isInfixOf` l
+    findOK _     = False
+
+quickcheck _ _ = Nothing
+
+----------------------------------------
 
 std :: [Convention]
-std = [hunit, quickcheck]
+std = [booltest, hunit, quickcheck]
 
 {-
+FIXME
+
 This logic requires an overhaul of the types:
 
   - if you define mainPlannedTestSuite :: (Plan Int, IO TestSuiteResult), we assume you need control and we'll run it and merge the TAP with other tests. (also mainTestSuite)
