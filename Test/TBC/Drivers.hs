@@ -20,6 +20,8 @@ import System.Exit
 import System.IO -- ( hClose, hFlush, hGetContents, hPutStr )
 import System.Process ( runInteractiveProcess, waitForProcess )
 
+import Debug.Trace
+
 -------------------------------------------------------------------
 
 -- Drivers
@@ -59,7 +61,7 @@ ghci cmd flags =
      return $ MkDriver
                 { hci_send_cmd = ghci_sync hin hout
                 , hci_load_file = load_file
-                , hci_close = waitForProcess hpid
+                , hci_close = trace "hci_close" $ hPutStr hin ":quit\n" >>  hFlush hin >> waitForProcess hpid
                 }
 
 ghci_sync :: Handle -> Handle -> String -> IO [String]
