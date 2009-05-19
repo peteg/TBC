@@ -26,7 +26,7 @@ import Data.Maybe ( catMaybes )
 import Data.List ( nub )
 
 import System.Directory ( Permissions(searchable), getDirectoryContents, getPermissions )
-import System.FilePath ( (</>) )
+import System.FilePath ( (</>), takeExtension )
 
 import Test.TBC.Drivers ( Driver(hci_load_file) )
 
@@ -96,15 +96,20 @@ applyConventions cs f = catMaybes . applyCs . lines
 
 conventionalTester :: [Convention] -> Driver -> Renderer -> Iterator (Int, Int)
 conventionalTester cs driver renderer s@(run, succeeded) f =
-  do -- putStrLn $ "conventionIterator: " ++ f
-     ts <- applyConventions cs f `liftM` readFile f
-     mCout <- hci_load_file driver f
-     s' <- case mCout of
-             [] -> foldM runTest s (nub ts)
-             cout -> do putStrLn $ renderCompilationFailure renderer s f ts cout
-                        return (run + 1, succeeded)
-     return (Continue, s') -- FIXME can tests stop the traversal?
+  if ext `elem` [".hs", ".lhs"] -- FIXME abstract
+    then do -- putStrLn $ "conventionIterator: " ++ f
+            ts <- applyConventions cs f `liftM` readFile f
+            mCout <- hci_load_file driver f
+            s' <- case mCout of
+                    [] -> foldM runTest s (nub ts)
+                    cout -> do putStrLn $ renderCompilationFailure renderer s f ts cout
+                               return (run + 1, succeeded)
+            return (Continue, s') -- FIXME can tests stop the traversal?
+    else do putStrLn $ "Skipping: " ++ f
+            return (Continue, s)
   where
+    ext = takeExtension f
+
     runTest (run', succeeded') t =
       do r <- tRun t driver
          putStr (renderTest renderer run' f t r)
