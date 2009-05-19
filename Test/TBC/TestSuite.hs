@@ -192,6 +192,8 @@ quietRender =
 
     quietCF i f ts cout =
         "** Compilation failed: " ++ f ++ "\n"
-      ++ unlines (cout ++ ["", "** Tests skipped:"] ++ [ ' ' : tName t | t <- ts ])
+      ++ unlines (rCout ++ if (null ts) then [] else ["", "** Tests skipped:"] ++ [ ' ' : tName t | t <- ts ])
+        where
+          rCout = [ '#':' ':s | s <- cout ]
 
     quietE (run, succeeded) = "Passed " ++ show succeeded ++ " / " ++ show run

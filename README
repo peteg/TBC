@@ -20,6 +20,9 @@ Careful: don't compile the Setup.hs or GHC will build whatever is
 being tested in the source dirs (and not Cabal's dist/).
 
 - add emacs-haskell like smarts for finding the .cabal file (root of the project)
+- generalise Cabal support
+ - currently assumes there's a single target (only tested for 'Library')
+ - doesn't make sense to run all the tests for all targets
 - add an executable
  - rough semantics: run all tests below the current dir
  - need to set GHCi's current dir appropriately, ala emacs-haskell
@@ -35,10 +38,8 @@ being tested in the source dirs (and not Cabal's dist/).
 - remove the concurrency in the GHCi driver if unnecessary
 - add a Sanity convention
 
-Works now:
-
-- allow it to use cabal-built objects from dist/build
-- investigate the GHCi module header bug
+Works now: allow it to use cabal-built objects from dist/build
+... but: investigate the GHCi module header bug
  - leaving off "module T where" from the top of tests yields e.g.
 
 not ok 13 - Tests/00_Circuits/022_xor_loop.hs:prop_correct

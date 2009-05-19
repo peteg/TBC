@@ -94,7 +94,7 @@ ghci_sync hin hout inp =
     done = ">>>>done<<<<"
 
     hc_sync_print :: String
-    hc_sync_print = "putStrLn \"" ++ done ++ "\"\n"
+    hc_sync_print = "System.IO.putStrLn \"" ++ done ++ "\"\n"
 
     -- FIXME EOF, exceptions, etc.
     hc_sync :: Handle -> IO [String]
@@ -102,6 +102,7 @@ ghci_sync hin hout inp =
         where
           sync =
               do l <- hGetLine h
+--                  putStrLn $ "hc>> " ++ l
                  if done `isInfixOf` l
                    then return []
                    else (l:) `liftM` sync
