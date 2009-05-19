@@ -127,3 +127,4 @@ CHECKED TO HERE
 - TAP compliant, so we can hook it into buildbot or whatever - no more NIH stuff
 
 - ideally, relatively fast: this is not totally necessary, but loading every single testfile individually into ghci blows a bit.
+
