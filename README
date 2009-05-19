@@ -16,6 +16,14 @@ is in scope.
 
 == Gotchas ==
 
+Say:
+
+runghc Setup test v
+
+for a verbose session. FIXME we'd like to use '-v' but Cabal doesn't
+pass it along.
+
+
 Careful: don't compile the Setup.hs or GHC will build whatever is
 being tested in the source dirs (and not Cabal's dist/).
 

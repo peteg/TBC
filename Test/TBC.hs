@@ -68,8 +68,16 @@ defaultMain = DS.defaultMainWithHooks hooks
 -- FIXME how do we get flags? Verbosity?
 tbcCabal :: FilePath -- ^ Where are the tests?
          -> DS.Args -> Bool -> PackageDescription -> LocalBuildInfo -> IO ()
-tbcCabal testRoot _args _wtf pkg_descr localbuildinfo =
-    do let cmd = fmap programPath (lookupProgram ghcProgram (withPrograms localbuildinfo))
+tbcCabal testRoot args _wtf pkg_descr localbuildinfo =
+    do let
+           -- If the first argument is 'v', be verbose.
+           -- FIXME clunky due to a lack of cooperation from Cabal
+           verbose = case args of
+                       "v":_ -> True
+                       _     -> False
+
+           -- Find GHC
+           cmd = fmap programPath (lookupProgram ghcProgram (withPrograms localbuildinfo))
 
            -- The tests are part of the package (from GHC's pov).
            pkgid = packageId pkg_descr
@@ -78,6 +86,7 @@ tbcCabal testRoot _args _wtf pkg_descr localbuildinfo =
            buildInfo = head (allBuildInfo pkg_descr)
 
            -- FIXME hardwire the path?
+           -- This requires that the user invoked "Setup build".
            cObjs = [ buildDir localbuildinfo </> c `replaceExtension` objExtension
                      | c <- cSources buildInfo ]
 
@@ -93,7 +102,7 @@ tbcCabal testRoot _args _wtf pkg_descr localbuildinfo =
        case cmd of
          Nothing -> putStrLn "GHC not found."
          Just hc_cmd ->
-           do d <- ghci hc_cmd flags
+           do d <- ghci verbose hc_cmd flags
               tbc d testRoot
               hci_close d
               return ()
