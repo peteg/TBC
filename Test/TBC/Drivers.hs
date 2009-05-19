@@ -12,7 +12,7 @@ module Test.TBC.Drivers
 -------------------------------------------------------------------
 
 import Control.Concurrent -- ( forkIO )
-import Control.Monad ( liftM )
+import Control.Monad ( liftM, when )
 
 import Data.List ( isInfixOf )
 
@@ -33,12 +33,14 @@ data Driver
 ----------------------------------------
 
 -- | GHCi driver, slave process.
-ghci :: String -- ^ ghci command name
+ghci :: Bool -- ^ Verbosity
+     -> String -- ^ ghci command name
      -> [String] -- ^ flags
      -> IO Driver
-ghci cmd flags =
-  do putStrLn $ "system $ " ++ cmd ++ " " ++ concat [ ' ' : a | a <- flags ]
-     putStrLn $ "----------------------------------------\n"
+ghci verbose cmd flags =
+  do when verbose $
+       do putStrLn $ "system $ " ++ cmd ++ " " ++ concat [ ' ' : a | a <- flags ]
+          putStrLn $ "----------------------------------------\n"
      (hin, hout, herr, hpid)
          <- runInteractiveProcess cmd flags Nothing Nothing -- FIXME
 
@@ -51,23 +53,24 @@ ghci cmd flags =
      hClose herr
 
      let load_file f =
-           do cout <- ghci_sync hin hout (":l " ++ f ++ "\n")
+           do cout <- ghci_sync verbose hin hout (":l " ++ f ++ "\n")
               if not (null cout) && "Ok, modules loaded" `isInfixOf` last cout
                 then return []
                 else return cout
 
      return $ MkDriver
-                { hci_send_cmd = ghci_sync hin hout
+                { hci_send_cmd = ghci_sync verbose hin hout
                 , hci_load_file = load_file
                 , hci_close = waitForProcess hpid
                 }
 
-ghci_sync :: Handle -> Handle -> String -> IO [String]
-ghci_sync hin hout inp =
-  do
---      putStrLn $ "--Sync----------------------------------"
---      putStr inp
---      putStrLn $ "----------------------------------------"
+ghci_sync :: Bool -- ^ Verbosity
+          -> Handle -> Handle -> String -> IO [String]
+ghci_sync verbose hin hout inp =
+  do when verbose $
+       do putStrLn $ "--Sync----------------------------------"
+          putStr inp
+          putStrLn $ "----------------------------------------"
 
      -- FIXME do we really need the separate thread?
      -- Get output + sync
@@ -82,8 +85,9 @@ ghci_sync hin hout inp =
      -- Synchronize
      hc_output <- lint_output `liftM` takeMVar outMVar
 
---      putStrLn $ ">> Output <<"
---      putStr (unlines hc_output)
+     when verbose $
+       do putStrLn $ ">> Output <<"
+          putStr (unlines hc_output)
 
      return hc_output
   where
