@@ -61,7 +61,9 @@ ghci verbose cmd flags =
      return $ MkDriver
                 { hci_send_cmd = ghci_sync verbose hin hout
                 , hci_load_file = load_file
-                , hci_close = hPutStr hin ":quit\n" >>  hFlush hin >> waitForProcess hpid
+                , hci_close = do hPutStr hin ":quit\n"
+                                 hFlush hin
+                                 waitForProcess hpid
                 }
 
 ghci_sync :: Bool -- ^ Verbosity
