@@ -95,8 +95,8 @@ quickcheck _f a@('p':'r':'o':'p':'_':_) =
                     then TestResultSuccess
                     else TestResultFailure r
 
-    findOK (l:_) = "OK" `isInfixOf` l
-    findOK _     = False
+    -- FIXME what's going on here?
+    findOK ls = ", passed" `isInfixOf` last ls
 
 quickcheck _ _ = Nothing
 

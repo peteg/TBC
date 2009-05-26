@@ -38,6 +38,8 @@ import Test.TBC.Drivers as Drivers
 import Test.TBC.TestSuite as TestSuite
 
 -------------------------------------------------------------------
+-- TBC-as-a-library.
+-------------------------------------------------------------------
 
 -- | FIXME Bells and whistles driver.
 tbcWithHooks :: [Convention] -> Renderer -> Driver -> FilePath -> IO ()
@@ -51,7 +53,7 @@ tbcWithHooks convs renderer driver testRoot =
 
 -- | FIXME Conventional driver.
 tbc :: Driver -> FilePath -> IO ()
-tbc = tbcWithHooks Conv.std quietRender
+tbc = tbcWithHooks Conv.std quieterRender
 
 ----------------------------------------
 -- Cabal support.
