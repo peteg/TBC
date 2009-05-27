@@ -12,7 +12,10 @@ Tests live in $PROJECT/Tests so test-specific hierarchical modules can
 exist there.
 
 The tests themselves must ensure the test framework (QuickCheck, etc.)
-is in scope.
+is in scope, i.e. be executable as they are in GHCi.
+
+The 'tbc' executable will search upwards for a '.cabal' file and
+assumes the 'dist/' directory is in the same place.
 
 == Gotchas ==
 
@@ -25,27 +28,24 @@ pass it along.
 
 There are no timeouts.
 
-Careful: don't compile the Setup.hs or GHC will build whatever is
-being tested in the source dirs (and not Cabal's dist/).
+Don't compile TBC's Setup.hs or GHC will build it in the source dirs
+(and not Cabal's dist/).
 
-- add emacs-haskell like smarts for finding the .cabal file (root of the project)
 - generalise Cabal support
  - currently assumes there's a single target (only tested for 'Library')
  - doesn't make sense to run all the tests for all targets
-- add an executable
- - rough semantics: run all tests below the current dir
- - need to set GHCi's current dir appropriately, ala emacs-haskell
 - handle being ^C'd - kill the slave process too.
-- command-line flags: verbosity, test name, ...
 - include line number info
 - HUnit support needs some love from someone who cares
 - Hugs/etc. support needs some love from someone who cares
 - FFI/etc. support needs some love from someone who cares
+ - there is some basic stuff there, we could scavenge more from cabal-test
 - add flags
   - verbosity (use Cabal's flags / datatype)
   - run a particular test file / directory
 - remove the concurrency in the GHCi driver if unnecessary
 - add a Sanity convention
+- add file/dir conventions
 
 Works now: allow it to use cabal-built objects from dist/build
 ... but: investigate the GHCi module header bug

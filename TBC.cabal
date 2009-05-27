@@ -21,7 +21,7 @@ source-repository head
   location: git://github.com/peteg/TBC.git
 
 Library
-  Build-depends: base, Cabal, directory, filepath, HUnit, process
+  Build-depends: base, Cabal, directory, filepath, process
   Extensions:
   Ghc-options: -Wall
   Exposed-Modules: Test.TBC
@@ -29,3 +29,9 @@ Library
     Test.TBC.Convention
     Test.TBC.Drivers
     Test.TBC.TestSuite
+
+Executable tbc
+  Build-depends: base, Cabal, directory, filepath, process
+  Extensions:
+  Ghc-options: -Wall
+  main-is: Test/Main.hs

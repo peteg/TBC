@@ -12,8 +12,10 @@ module Test.TBC.TestSuite
 
     , applyConventions
     , conventionalTester
+
     , tapRender
     , quietRender
+    , quieterRender
     ) where
 
 -------------------------------------------------------------------
@@ -200,5 +202,29 @@ quietRender =
       ++ unlines (rCout ++ if (null ts) then [] else ["", "** Tests skipped:"] ++ [ ' ' : tName t | t <- ts ])
         where
           rCout = [ '#':' ':s | s <- cout ]
+
+    quietE (run, succeeded) = "Passed " ++ show succeeded ++ " / " ++ show run
+
+----------------------------------------
+
+-- Only interested in failures.
+quieterRender :: Renderer
+quieterRender =
+    Renderer
+    { renderBegin = ""
+    , renderTest = quietR
+    , renderCompilationFailure = quietCF
+    , renderEnd = quietE
+    }
+  where
+    quietR i f t r =
+        case r of
+          TestResultFailure strs -> "Failed: " ++ tid ++ "\n"
+          TestResultSuccess -> ""
+        where
+          tid = show i ++ " - " ++ f ++ ":" ++ tName t
+
+    quietCF i f ts cout =
+        "** Compilation failed: " ++ f
 
     quietE (run, succeeded) = "Passed " ++ show succeeded ++ " / " ++ show run
