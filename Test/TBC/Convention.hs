@@ -63,9 +63,9 @@ booltest _ _ = Nothing
 ----------------------------------------
 
 hunit :: Convention
-hunit _f a@('h':'u':'n':'i':'t':'_':rest) =
+hunit _f a@('h':'u':'n':'i':'t':'_':_) =
     Just $ Test
-             { tName = mkTestName rest
+             { tName = mkTestName a
              , tRun = run_hunit_all
              }
   where
