@@ -63,16 +63,16 @@ booltest _ _ = Nothing
 ----------------------------------------
 
 hunit :: Convention
-hunit _f a@('h':'u':'n':'i':'t':'_':rest) =
+hunit _f a@('h':'u':'n':'i':'t':'_':_) =
     Just $ Test
-             { tName = mkTestName rest
+             { tName = name
              , tRun = run_hunit_all
              }
   where
     name = mkTestName a
 
     run_hunit_all d = do
-           r <- hci_send_cmd d ("seq " ++ name ++ " $ runTestTT $ test  " ++ name ++ "\n")
+           r <- hci_send_cmd d ("seq " ++ name ++ " $ runTestTT $ test " ++ name ++ "\n")
            return $ if findOK r
                       then TestResultSuccess
                       else TestResultFailure r

@@ -2,11 +2,14 @@
 
 == Conventions ==
 
-Lines beginning "prop_" are QuickCheck tests. Apply "test" to them.
+Lines beginning with "hunit_" are HUnit tests: TBC applies "runTestTT
+. test" to them.
+
+Lines beginning "prop_" are QuickCheck tests: TBC applies "test" to them.
 
 Lines beginning "test_" are boolean tests (of type Bool or IO Bool or
-IO () with a print statement or ...). Run them and expect the final
-line of output to be "True".
+IO () with a print statement or ...): TBC runs them and expects the
+final line of output to be "True".
 
 Tests live in $PROJECT/Tests so test-specific hierarchical modules can
 exist there.
@@ -30,6 +33,11 @@ There are no timeouts.
 
 Don't compile TBC's Setup.hs or GHC will build it in the source dirs
 (and not Cabal's dist/).
+
+Conventions must retain the full name of the test, otherwise we run
+into some nasty lexical issues, e.g. to avoid:
+
+hunit_prop_blah =tName equals= prop_blah
 
 - generalise Cabal support
  - currently assumes there's a single target (only tested for 'Library')
