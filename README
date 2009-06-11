@@ -8,6 +8,9 @@ Lines beginning "test_" are boolean tests (of type Bool or IO Bool or
 IO () with a print statement or ...). Run them and expect the final
 line of output to be "True".
 
+Lines beginning "hunit_" are HUnit tests, or assertions, or lists of
+assertions/tests.
+
 Tests live in $PROJECT/Tests so test-specific hierarchical modules can
 exist there.
 
