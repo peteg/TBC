@@ -62,20 +62,23 @@ booltest _ _ = Nothing
 
 ----------------------------------------
 
--- FIXME needs some love from someone who cares.
 hunit :: Convention
-hunit _f a@('h':'u':'n':'i':'t':'_':_) =
+hunit _f a@('h':'u':'n':'i':'t':'_':rest) =
     Just $ Test
-             { tName = name
-             , tRun = run_hunit_test
+             { tName = mkTestName rest
+             , tRun = run_hunit_all
              }
   where
     name = mkTestName a
 
-    run_hunit_test d =
-      do r <- hci_send_cmd d $ "seq " ++ name ++ " $ performTestCase $ assert $ " ++ name ++ "\n"
-         -- FIXME Grep
-         return $ TestResultFailure r
+    run_hunit_all d = do
+           r <- hci_send_cmd d ("seq " ++ name ++ " $ runTestTT $ test  " ++ name ++ "\n")
+           return $ if findOK r
+                      then TestResultSuccess
+                      else TestResultFailure r
+
+    findOK ls = "errors = 0, failures = 0" `isInfixOf` last ls
+
 hunit _ _ = Nothing
 
 ----------------------------------------
