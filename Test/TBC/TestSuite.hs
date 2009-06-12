@@ -24,8 +24,8 @@ module Test.TBC.TestSuite
 
 import Control.Monad ( liftM, foldM )
 
+import Data.List ( nubBy )
 import Data.Maybe ( catMaybes )
-import Data.List ( nub )
 
 import System.Directory ( Permissions(searchable), getDirectoryContents, getPermissions )
 import System.FilePath ( (</>), takeExtension )
@@ -44,12 +44,9 @@ type Convention = FilePath -> String -> Maybe Test
 -- FIXME probably needs line numbers sprinkled all through this
 data Test
     = Test
-      { tName :: String
+      { tName :: String -- ^ Each 'Test' in a 'TestFile' must have a different name.
       , tRun :: Driver -> IO Result
       }
-
-instance Eq Test where
-    t == t' = tName t == tName t'
 
 -- | The result of a single 'Test'.
 data Result
@@ -103,7 +100,7 @@ conventionalTester cs driver renderer s@(run, succeeded) f =
             ts <- applyConventions cs f `liftM` readFile f
             mCout <- hci_load_file driver f
             s' <- case mCout of
-                    [] -> foldM runTest s (nub ts)
+                    [] -> foldM runTest s (nubBy (eqOn tName) ts)
                     cout -> do putStrLn $ renderCompilationFailure renderer s f ts cout
                                return (run + 1, succeeded)
             return (Continue, s') -- FIXME can tests stop the traversal?
@@ -111,6 +108,8 @@ conventionalTester cs driver renderer s@(run, succeeded) f =
             return (Continue, s)
   where
     ext = takeExtension f
+
+    eqOn p x y = p x == p y
 
     runTest (run', succeeded') t =
       do r <- tRun t driver
