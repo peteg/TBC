@@ -29,12 +29,13 @@ import Distribution.PackageDescription
 import qualified Distribution.Simple as DS
 import Distribution.Simple.BuildPaths ( objExtension )
 import Distribution.Simple.GHC ( ghcOptions )
-import Distribution.Simple.LocalBuildInfo ( LocalBuildInfo, buildDir, withPrograms )
+import Distribution.Simple.LocalBuildInfo ( LocalBuildInfo, buildDir, withLibLBI, withPrograms )
 import Distribution.Simple.Program ( ghcProgram, lookupProgram, programPath )
 import Distribution.Text ( display )
 
 import Test.TBC.Convention as Conv
 import Test.TBC.Drivers as Drivers
+import Test.TBC.Renderers as Renderers
 import Test.TBC.TestSuite as TestSuite
 
 -------------------------------------------------------------------
@@ -42,10 +43,12 @@ import Test.TBC.TestSuite as TestSuite
 -------------------------------------------------------------------
 
 -- | FIXME Bells and whistles driver.
-tbcWithHooks :: [Convention] -> Renderer -> Driver -> FilePath -> IO ()
+-- FIXME invoke the renderer functions appropriately.
+tbcWithHooks :: Conventions s -> Renderer s -> Driver -> FilePath -> IO ()
 tbcWithHooks convs renderer driver testRoot =
-    do s@(_run, _succeeded) <- foldTree (conventionalTester convs driver renderer) (0, 0) testRoot
-       putStrLn $ renderEnd renderer s
+    do s0 <- rInitialState renderer
+       s <- traverseDirectories convs driver renderer s0 testRoot
+       rFinal renderer s
        return ()
     `catch` handler
   where
@@ -53,7 +56,7 @@ tbcWithHooks convs renderer driver testRoot =
 
 -- | FIXME Conventional driver.
 tbc :: Driver -> FilePath -> IO ()
-tbc = tbcWithHooks Conv.std quieterRender
+tbc = tbcWithHooks Conv.std Renderers.quiet
 
 ----------------------------------------
 -- Cabal support.
@@ -71,6 +74,7 @@ defaultMain = DS.defaultMainWithHooks hooks
 tbcCabal :: FilePath -- ^ Where are the tests?
          -> DS.Args -> Bool -> PackageDescription -> LocalBuildInfo -> IO ()
 tbcCabal testRoot args _wtf pkg_descr localbuildinfo =
+  withLibLBI pkg_descr localbuildinfo $ \_lib clbi ->
     do let
            -- If the first argument is 'v', be verbose.
            -- FIXME clunky due to a lack of cooperation from Cabal
@@ -99,6 +103,7 @@ tbcCabal testRoot args _wtf pkg_descr localbuildinfo =
                ++ cObjs
                ++ ghcOptions localbuildinfo
                              buildInfo
+                             clbi
                              (buildDir localbuildinfo)
 
        case cmd of

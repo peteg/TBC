@@ -9,6 +9,7 @@ module Main ( main ) where
 -------------------------------------------------------------------
 
 import Data.List ( isSuffixOf )
+import Data.Maybe ( fromMaybe )
 
 import Distribution.Simple
 import Distribution.Simple.Configure
@@ -19,7 +20,10 @@ import Distribution.Simple.Setup ( defaultDistPref )
 
 import System.Directory ( getCurrentDirectory, getDirectoryContents, setCurrentDirectory )
 import System.Exit -- ( ExitFailure, exitWith )
+import System.Environment ( getArgs, getProgName )
 import System.FilePath -- ( takeDirectory ) -- FIXME
+
+import qualified System.Console.GetOpt as GetOpt
 
 import Test.TBC ( tbcCabal )
 
@@ -47,22 +51,58 @@ findCabal = getCurrentDirectory >>= searchUp ["."] . splitPath
         curdir = joinPath path
         nextPath = init path
 
+----------------------------------------
+
+-- | Program arguments: file, directory, verbosity, ...
+data Options =
+    Options
+    { optVerbose     :: Bool
+    , optShowVersion :: Bool
+    } deriving Show
+
+defaultOptions =
+    Options
+    { optVerbose     = False
+    , optShowVersion = False
+    }
+
+options :: [GetOpt.OptDescr (Options -> Options)]
+options =
+    [ GetOpt.Option ['v']     ["verbose"]
+        (GetOpt.NoArg (\ opts -> opts { optVerbose = True }))
+        "chatty output on stdout"
+    , GetOpt.Option ['V','?'] ["version"]
+        (GetOpt.NoArg (\ opts -> opts { optShowVersion = True }))
+        "show version number"
+    ]
+
+progOpts :: [String] -> IO (Options, [String])
+progOpts argv =
+  case GetOpt.getOpt GetOpt.Permute options argv of
+      (o, n, []  ) -> return (foldl (flip id) defaultOptions o, n)
+      (_, _, errs) ->
+        do progName <- getProgName
+           ioError (userError (concat errs ++ GetOpt.usageInfo (header progName) options))
+  where header progName = "Usage: " ++ progName ++ " [OPTION...] files..."
+
+----------------------------------------
+
 -- | FIXME infinite room for improvement.
---  - args: file, directory, verbosity, ...
+-- FIXME Make use of the options
+-- FIXME Be careful if we're in the project dir and "Tests/" exists. ???
 main :: IO ()
 main =
- do putStrLn "Hello from TBC."
+ do (opts, tests) <- progOpts =<< getArgs
     cabalLoc <- findCabal
-    putStrLn $ "Cabal: " ++ show cabalLoc
-
     case cabalLoc of
       Nothing ->
-        do putStrLn ".cabal file not found. Where are we?"
+        do putStrLn ".cabal file not found."
            exitWith (ExitFailure 1)
-      Just (testPath, root, _cabalFile) ->
-        do -- Change to the project root directory
+      Just (testPath, root, cabalFile) ->
+        do putStrLn $ "Running tests with Cabal file: '" ++ cabalFile ++ "' in directory: " ++ testPath
+           -- Change to the project root directory
            setCurrentDirectory root
-           getCurrentDirectory >>= \s -> putStrLn $ "In directory: " ++ s
+           -- getCurrentDirectory >>= \s -> putStrLn $ "In directory: " ++ s
 
            -- FIXME assume the dist/ dir is with the .cabal file.
            -- No good evidence for this except it's the Simple thing to do.
@@ -71,7 +111,6 @@ main =
            let pkg_descr = localPkgDescr localbuildinfo
 
            tbcCabal testPath [] False pkg_descr localbuildinfo
-
   where hooks = error "FIXME Simple only for now."
 
 ----------------------------------------
