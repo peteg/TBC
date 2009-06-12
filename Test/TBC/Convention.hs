@@ -11,8 +11,8 @@
  - FIXME tests that appear in block comments {- -} are still picked up.
  -}
 module Test.TBC.Convention
-    ( mkTestName
-    , booltest
+    ( booltest
+    , exception
     , hunit
     , quickcheck
 --     , convention_mainPlannedTestSuite
@@ -25,28 +25,43 @@ module Test.TBC.Convention
 -- Dependencies.
 -------------------------------------------------------------------
 
-import Data.Char ( isAlpha, isDigit )
 import Data.List -- ( isPrefixOf )
+import System.FilePath ( splitPath, takeExtension )
 
 import Test.TBC.Drivers ( Driver(..) )
-import Test.TBC.TestSuite ( Convention, Result(..), Test(..) )
+import Test.TBC.TestSuite
 
 -------------------------------------------------------------------
-
--- | FIXME this should follow the Haskell lexical conventions.
-mkTestName :: String -> String
-mkTestName = takeWhile (\c -> or (map ($c) [isAlpha, isDigit, ('_' ==)]))
-
+-- Directory conventions.
 -------------------------------------------------------------------
 
--- | The test should yield 'True'. FIXME Note this should work for
--- both @Bool@ and @IO Bool@.
-booltest :: Convention
-booltest _f a@('t':'e':'s':'t':'_':_) =
-    Just $ Test
-             { tName = name
-             , tRun = run_booltest
-             }
+-- FIXME ignore .git, etc.
+
+stdDirectoryConv :: DirectoryConvention s
+stdDirectoryConv fulldir s
+    | dir `elem` [".darcs", ".git"] = (Skip, s)
+    | otherwise = (Cont, s)
+  where dir = last (splitPath fulldir)
+
+-------------------------------------------------------------------
+-- TestFile conventions.
+-------------------------------------------------------------------
+
+stdTestFileConv :: TestFileConvention s
+stdTestFileConv f s
+    | ext `elem` [".hs", ".lhs"] = (Cont, s)
+    | otherwise = (Skip, s)
+  where
+    ext = takeExtension f
+
+-------------------------------------------------------------------
+-- Test conventions.
+-------------------------------------------------------------------
+
+-- | The test should yield the string 'True'. This should work for
+-- tests of type @Bool@, @IO Bool@, @IO ()@ with a @putStrLn@, ...
+booltest :: TestConvention
+booltest a@('t':'e':'s':'t':'_':_) = Just run_booltest
   where
     name = mkTestName a
 
@@ -56,18 +71,33 @@ booltest _f a@('t':'e':'s':'t':'_':_) =
                     then TestResultSuccess
                     else TestResultFailure r
 
-    findTrue r = last r == show True
+    findTrue ls = show True == last ls
 
-booltest _ _ = Nothing
+booltest _ = Nothing
 
 ----------------------------------------
 
-hunit :: Convention
-hunit _f a@('h':'u':'n':'i':'t':'_':_) =
-    Just $ Test
-             { tName = name
-             , tRun = run_hunit_all
-             }
+-- | The test should throw an exception.
+exception :: TestConvention
+exception a@('e':'x':'c':'e':'p':'t':'i':'o':'n':_) = Just run_exception
+  where
+    name = mkTestName a
+
+    run_exception d =
+      do r <- hci_send_cmd d $ "seq " ++ name ++ " ()\n"
+         return $ if findException r
+                    then TestResultSuccess
+                    else TestResultFailure r
+
+    findException ls = "*** Exception:" `isPrefixOf` last ls
+
+exception _ = Nothing
+
+----------------------------------------
+
+-- | A HUnit unit test.
+hunit :: TestConvention
+hunit a@('h':'u':'n':'i':'t':'_':_) = Just run_hunit_all
   where
     name = mkTestName a
 
@@ -79,16 +109,12 @@ hunit _f a@('h':'u':'n':'i':'t':'_':_) =
 
     findOK ls = "errors = 0, failures = 0" `isInfixOf` last ls
 
-hunit _ _ = Nothing
+hunit _ = Nothing
 
 ----------------------------------------
 
-quickcheck :: Convention
-quickcheck _f a@('p':'r':'o':'p':'_':_) =
-    Just $ Test
-             { tName = name
-             , tRun = run_quickcheck_test
-             }
+quickcheck :: TestConvention
+quickcheck a@('p':'r':'o':'p':'_':_) = Just run_quickcheck_test
   where
     name = mkTestName a
 
@@ -101,12 +127,16 @@ quickcheck _f a@('p':'r':'o':'p':'_':_) =
     -- FIXME what's going on here?
     findOK ls = ", passed" `isInfixOf` last ls
 
-quickcheck _ _ = Nothing
+quickcheck _ = Nothing
 
 ----------------------------------------
 
-std :: [Convention]
-std = [booltest, hunit, quickcheck]
+std :: Conventions s
+std = Conventions
+      { cDirectory = stdDirectoryConv
+      , cTestFile = stdTestFileConv
+      , cTests = [booltest, exception, hunit, quickcheck]
+      }
 
 {-
 FIXME

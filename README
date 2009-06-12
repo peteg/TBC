@@ -2,6 +2,9 @@
 
 == Conventions ==
 
+Lines beginning with "exception_" are constants that when evaluated
+throw an exception.
+
 Lines beginning with "hunit_" are HUnit tests: TBC applies "runTestTT
 . test" to them.
 

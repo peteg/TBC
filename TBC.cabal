@@ -28,6 +28,7 @@ Library
   Other-modules:
     Test.TBC.Convention
     Test.TBC.Drivers
+    Test.TBC.Renderers
     Test.TBC.TestSuite
 
 Executable tbc
