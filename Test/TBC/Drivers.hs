@@ -38,6 +38,7 @@ ghci :: Bool -- ^ Verbosity
      -> [String] -- ^ flags
      -> IO Driver
 ghci verbose cmd flags =
+    -- let flags = ("+RTS --install-signal-handlers=yes -K5M -RTS":flags') in
   do when verbose $
        do putStrLn $ "system $ " ++ cmd ++ " " ++ concat [ ' ' : a | a <- flags ]
           putStrLn $ "----------------------------------------\n"
@@ -47,6 +48,11 @@ ghci verbose cmd flags =
      -- Configure GHCi a bit FIXME
      hPutStrLn hin ":set prompt \"\""
      hPutStrLn hin "GHC.Handle.hDuplicateTo System.IO.stdout System.IO.stderr"
+     hPutStrLn hin ":m +System.Posix.Signals"
+     hPutStrLn hin  "mapM (\\(sig, name) -> installHandler sig (Catch $ writeFile \"./logging.txt\" name >> System.exitWith (ExitFailure sig)) Nothing) [(sigPIPE, \"PIPE\"),(sigCHLD, \"CHILD\")]"
+
+     -- get GHCi to spit out any received signals
+     -- fullSignalSet :: SignalSet
 
      -- We don't use GHCi's stderr, get rid of it.
      -- FIXME we maybe have to drain it first.

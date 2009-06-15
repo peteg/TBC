@@ -9,7 +9,7 @@ module Main ( main ) where
 -------------------------------------------------------------------
 
 import Data.List ( isSuffixOf )
-import Data.Maybe ( fromMaybe )
+import Data.Maybe ( )
 
 import Distribution.Simple
 import Distribution.Simple.Configure
@@ -92,7 +92,7 @@ progOpts argv =
 -- FIXME Be careful if we're in the project dir and "Tests/" exists. ???
 main :: IO ()
 main =
- do (opts, tests) <- progOpts =<< getArgs
+ do (opts, _tests) <- progOpts =<< getArgs
     cabalLoc <- findCabal
     case cabalLoc of
       Nothing ->
@@ -110,7 +110,7 @@ main =
            localbuildinfo <- getBuildConfig hooks distPref
            let pkg_descr = localPkgDescr localbuildinfo
 
-           tbcCabal testPath [] False pkg_descr localbuildinfo
+           tbcCabal testPath ["v"] False pkg_descr localbuildinfo
   where hooks = error "FIXME Simple only for now."
 
 ----------------------------------------
