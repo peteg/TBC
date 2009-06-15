@@ -8,8 +8,8 @@ module Main ( main ) where
 -- Dependencies.
 -------------------------------------------------------------------
 
-import Data.List ( isSuffixOf )
-import Data.Maybe ( fromMaybe )
+import Control.Monad ( unless )
+import Data.List ( foldl', isSuffixOf )
 
 import Distribution.Simple
 import Distribution.Simple.Configure
@@ -17,6 +17,7 @@ import Distribution.Simple.UserHooks ( UserHooks, emptyUserHooks )
 import Distribution.Simple.LocalBuildInfo
 import Distribution.Simple.Program ( builtinPrograms, restoreProgramConfiguration )
 import Distribution.Simple.Setup ( defaultDistPref )
+import Distribution.Verbosity ( Verbosity, normal, verbose )
 
 import System.Directory ( getCurrentDirectory, getDirectoryContents, setCurrentDirectory )
 import System.Exit -- ( ExitFailure, exitWith )
@@ -53,23 +54,25 @@ findCabal = getCurrentDirectory >>= searchUp ["."] . splitPath
 
 ----------------------------------------
 
--- | Program arguments: file, directory, verbosity, ...
+-- | Program arguments.
 data Options =
     Options
-    { optVerbose     :: Bool
+    { optVerbosity   :: Verbosity
     , optShowVersion :: Bool
     } deriving Show
 
+defaultOptions :: Options
 defaultOptions =
     Options
-    { optVerbose     = False
+    { optVerbosity   = normal
     , optShowVersion = False
     }
 
+-- | FIXME use intToVerbosity
 options :: [GetOpt.OptDescr (Options -> Options)]
 options =
     [ GetOpt.Option ['v']     ["verbose"]
-        (GetOpt.NoArg (\ opts -> opts { optVerbose = True }))
+        (GetOpt.NoArg (\ opts -> opts { optVerbosity = verbose }))
         "chatty output on stdout"
     , GetOpt.Option ['V','?'] ["version"]
         (GetOpt.NoArg (\ opts -> opts { optShowVersion = True }))
@@ -79,7 +82,7 @@ options =
 progOpts :: [String] -> IO (Options, [String])
 progOpts argv =
   case GetOpt.getOpt GetOpt.Permute options argv of
-      (o, n, []  ) -> return (foldl (flip id) defaultOptions o, n)
+      (o, n, []  ) -> return (foldl' (flip id) defaultOptions o, n)
       (_, _, errs) ->
         do progName <- getProgName
            ioError (userError (concat errs ++ GetOpt.usageInfo (header progName) options))
@@ -93,13 +96,18 @@ progOpts argv =
 main :: IO ()
 main =
  do (opts, tests) <- progOpts =<< getArgs
+
+    unless (null tests) $ putStrLn $ "Testing: " ++ show tests
+    putStrLn $ "Options: " ++ show opts
+
     cabalLoc <- findCabal
     case cabalLoc of
       Nothing ->
         do putStrLn ".cabal file not found."
            exitWith (ExitFailure 1)
       Just (testPath, root, cabalFile) ->
-        do putStrLn $ "Running tests with Cabal file: '" ++ cabalFile ++ "' in directory: " ++ testPath
+        do
+           putStrLn $ "Running tests with Cabal file: '" ++ cabalFile ++ "' in directory: " ++ testPath
            -- Change to the project root directory
            setCurrentDirectory root
            -- getCurrentDirectory >>= \s -> putStrLn $ "In directory: " ++ s
@@ -110,7 +118,11 @@ main =
            localbuildinfo <- getBuildConfig hooks distPref
            let pkg_descr = localPkgDescr localbuildinfo
 
-           tbcCabal testPath [] False pkg_descr localbuildinfo
+           let ts = case tests of
+                      [] -> [ testPath ]
+                      _  -> [ testPath </> t | t <- tests ]
+
+           tbcCabal (optVerbosity opts) ts False pkg_descr localbuildinfo
   where hooks = error "FIXME Simple only for now."
 
 ----------------------------------------

@@ -50,6 +50,9 @@ data Location
 mkLocation :: FilePath -> Int -> Int -> Location
 mkLocation = Location
 
+instance Show Location where
+    show l = lFile l ++ ":" ++ show (lLine l) ++ ":" ++ show (lColumn l)
+
 -- | Discern a test name from a string, viz the entirety of the varid
 -- starting at the start of the string. FIXME this should follow the
 -- Haskell lexical conventions and perhaps be more robust.
@@ -86,8 +89,8 @@ data Renderer s
                             -> s
                             -> IO s
       , rSkip :: FilePath -> s -> IO s
-      , rTest :: FilePath -- ^ TestFile
-              -> Test
+      , rStop :: FilePath -> s -> IO s
+      , rTest :: Test
               -> s
               -> Result
               -> IO s
@@ -125,15 +128,15 @@ data Conventions s
 -------------------------------------------------------------------
 
 -- | Visit all files in a directory tree.
-traverseDirectories :: Conventions s -> Driver -> Renderer s -> s -> FilePath -> IO s
-traverseDirectories convs driver renderer s0 path0 = snd `liftM` fold s0 path0
+-- FIXME try to eliminate the "." with some refactoring.
+traverseDirectories :: Conventions s -> Driver -> Renderer s -> [FilePath] -> s -> IO s
+traverseDirectories convs driver renderer paths s0 = snd `liftM` walk s0 "." paths
   where
     fold s path =
       case cDirectory convs path s of
         (Cont, s') -> getUsefulContents path >>= walk s' path
         (Skip, s') -> rSkip renderer path s >> return (Cont, s')
-        as'@(Stop, _s') -> -- FIXME notify renderer
-                      return as'
+        as'@(Stop, _s') -> rStop renderer path s >> return as'
 
     walk s _ [] = return (Cont, s)
     walk s path (name:names) =
@@ -169,7 +172,7 @@ testFile convs driver renderer s0 f =
                    cout -> rCompilationFailure renderer f ts cout s
            return (Cont, s')
   where
-    runTest s t = tRun t driver >>= rTest renderer f t s
+    runTest s t = tRun t driver >>= rTest renderer t s
 
 {-
 This logic requires more work:

@@ -1,6 +1,6 @@
 Name: TBC
 Version: 0.0.1
-Cabal-version: >= 1.2
+Cabal-version: >= 1.7
 Build-type: Simple
 Copyright: Peter Gammie, Mark Wotton
 Maintainer: peteg42@gmail.com
