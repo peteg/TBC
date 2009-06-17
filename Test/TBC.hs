@@ -32,6 +32,7 @@ import Distribution.Simple.GHC ( ghcOptions )
 import Distribution.Simple.LocalBuildInfo ( LocalBuildInfo, buildDir, withLibLBI, withPrograms )
 import Distribution.Simple.Program ( ghcProgram, lookupProgram, programPath )
 import Distribution.Text ( display )
+import Distribution.Verbosity ( Verbosity, normal )
 
 import Test.TBC.Convention as Conv
 import Test.TBC.Drivers as Drivers
@@ -44,18 +45,18 @@ import Test.TBC.TestSuite as TestSuite
 
 -- | FIXME Bells and whistles driver.
 -- FIXME invoke the renderer functions appropriately.
-tbcWithHooks :: Conventions s -> Renderer s -> Driver -> FilePath -> IO ()
-tbcWithHooks convs renderer driver testRoot =
-    do s0 <- rInitialState renderer
-       s <- traverseDirectories convs driver renderer s0 testRoot
-       rFinal renderer s
-       return ()
-    `catch` handler
+tbcWithHooks :: Conventions s -> Renderer s -> Driver -> [FilePath] -> IO ()
+tbcWithHooks convs renderer driver testRoots =
+  (      rInitialState renderer
+     >>= traverseDirectories convs driver renderer testRoots
+     >>= rFinal renderer
+     >>  return ()
+  ) `catch` handler
   where
     handler e = putStrLn ("TBC: " ++ show e)
 
 -- | FIXME Conventional driver.
-tbc :: Driver -> FilePath -> IO ()
+tbc :: Driver -> [FilePath] -> IO ()
 tbc = tbcWithHooks Conv.std Renderers.quiet
 
 ----------------------------------------
@@ -65,22 +66,21 @@ tbc = tbcWithHooks Conv.std Renderers.quiet
 -- | Drop-in replacement for Cabal's 'Distribution.Simple.defaultMain'.
 defaultMain :: IO ()
 defaultMain = DS.defaultMainWithHooks hooks
-    where hooks = DS.simpleUserHooks { DS.runTests = tbcCabal "Tests" }
+    where hooks = DS.simpleUserHooks { DS.runTests = tbcCabal normal }
 
 -- | A driver compatible with Cabal's 'runTests' hook.
 -- FIXME assume we're running in the top-level project directory.
 -- FIXME generalise to Hugs, etc.
 -- FIXME how do we get flags? Verbosity?
-tbcCabal :: FilePath -- ^ Where are the tests?
-         -> DS.Args -> Bool -> PackageDescription -> LocalBuildInfo -> IO ()
-tbcCabal testRoot args _wtf pkg_descr localbuildinfo =
+tbcCabal :: Verbosity
+         -> DS.Args -- ^ Where are the tests (dirs and files)?
+         -> Bool -> PackageDescription -> LocalBuildInfo -> IO ()
+tbcCabal verbosity args _wtf pkg_descr localbuildinfo =
   withLibLBI pkg_descr localbuildinfo $ \_lib clbi ->
     do let
-           -- If the first argument is 'v', be verbose.
-           -- FIXME clunky due to a lack of cooperation from Cabal
-           verbose = case args of
-                       "v":_ -> True
-                       _     -> False
+           testRoots
+               | null args = ["Tests"]
+               | otherwise = args
 
            -- Find GHC
            cmd = fmap programPath (lookupProgram ghcProgram (withPrograms localbuildinfo))
@@ -109,7 +109,7 @@ tbcCabal testRoot args _wtf pkg_descr localbuildinfo =
        case cmd of
          Nothing -> putStrLn "GHC not found."
          Just hc_cmd ->
-           do d <- ghci verbose hc_cmd flags
-              tbc d testRoot
+           do d <- ghci verbosity hc_cmd flags
+              tbc d testRoots
               hci_close d
               return ()

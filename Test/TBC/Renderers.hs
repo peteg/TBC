@@ -42,11 +42,12 @@ tap =
     { rInitialState = return tapState0
     , rCompilationFailure = tcf
     , rSkip = tskip
+    , rStop = tstop
     , rTest = tt
     , rFinal = tf
     }
   where
-    tid i f t = show i ++ " - " ++ f ++ ":" ++ tName t
+    tid i t = show i ++ " - " ++ show (tLocation t) ++ " " ++ tName t
 
     tcf f ts cout s =
       do mapM_ putStrLn $ (("not ok # compilation failed: " ++ f)
@@ -60,21 +61,25 @@ tap =
       do putStrLn $ "Skipping " ++ f
          return s{ tsTestFilesSkipped = tsTestFilesSkipped s + 1 }
 
-    tt f t s r =
+    tstop f s =
+      do putStrLn $ "Stopping at " ++ f
+         return s
+
+    tt t s r =
       case r of
         TestResultFailure strs ->
-          do mapM_ putStrLn $ ("not ok " ++ tid i f t)
+          do mapM_ putStrLn $ ("not ok " ++ tid i t)
                               : [ '#':' ':l | l <- strs ]
              return s{ tsRun = tsRun s + 1 }
         TestResultSuccess ->
-          do putStrLn $ "ok " ++ tid i f t
+          do putStrLn $ "ok " ++ tid i t
              return s{ tsRun = tsRun s + 1
                      , tsPassed = tsPassed s + 1 }
         TestResultSkip ->
-          do putStrLn $ "ok " ++ tid i f t ++ " # SKIP FIXME is this OK or not?"
+          do putStrLn $ "ok " ++ tid i t ++ " # SKIP FIXME is this OK or not?"
              return s{ tsTestsSkipped = tsTestsSkipped s + 1 }
         TestResultToDo ->
-          do putStrLn $ "ok " ++ tid i f t
+          do putStrLn $ "ok " ++ tid i t
              return s{ tsToDo = tsToDo s + 1 }
       where
         i = tsRun s
@@ -94,11 +99,12 @@ quiet =
     { rInitialState = return tapState0
     , rCompilationFailure = tcf
     , rSkip = tskip
+    , rStop = tstop
     , rTest = tt
     , rFinal = tf
     }
   where
-    tid i f t = show i ++ " - " ++ f ++ ":" ++ tName t
+    tid t = show (tLocation t) ++ " " ++ tName t
 
     tcf f ts _cout s =
       do putStrLn $ "** Compilation failed: " ++ f
@@ -109,23 +115,25 @@ quiet =
       do putStrLn $ "Skipping " ++ f
          return s{ tsTestFilesSkipped = tsTestFilesSkipped s + 1 }
 
-    tt f t s r =
+    tstop f s =
+      do putStrLn $ "Stopping at " ++ f
+         return s
+
+    tt t s r =
       case r of
         TestResultFailure strs ->
-          do mapM_ putStrLn $ ("** Test failed: " ++ tid i f t)
+          do mapM_ putStrLn $ ("** Test failed: " ++ tid t)
                               : [ '#':' ':l | l <- strs ]
              return s{ tsRun = tsRun s + 1 }
         TestResultSuccess ->
              return s{ tsRun = tsRun s + 1
                      , tsPassed = tsPassed s + 1 }
         TestResultSkip ->
-          do putStrLn $ "ok " ++ tid i f t ++ " # SKIP FIXME is this OK or not?"
+          do putStrLn $ "ok " ++ tid t ++ " # SKIP FIXME is this OK or not?"
              return s{ tsTestsSkipped = tsTestsSkipped s + 1 }
         TestResultToDo ->
-          do putStrLn $ "ok " ++ tid i f t
+          do putStrLn $ "ok " ++ tid t
              return s{ tsToDo = tsToDo s + 1 }
-      where
-        i = tsRun s
 
     tf s =
       do putStrLn $ "Passed " ++ show (tsPassed s) ++ " / " ++ show (tsRun s)

@@ -59,7 +59,7 @@ hunit_prop_blah =tName equals= prop_blah
   - run a particular test file / directory
 - remove the concurrency in the GHCi driver if unnecessary
 - add a Sanity convention
-- add file/dir conventions
+- add timeouts, restarting GHCi, several GHCi's.
 
 Works now: allow it to use cabal-built objects from dist/build
 ... but: investigate the GHCi module header bug

@@ -12,9 +12,12 @@ module Test.TBC.Drivers
 -------------------------------------------------------------------
 
 import Control.Concurrent -- ( forkIO )
-import Control.Monad ( liftM, when )
+import Control.Monad ( liftM )
 
 import Data.List ( isInfixOf )
+
+import Distribution.Simple.Utils ( info, debug )
+import Distribution.Verbosity ( Verbosity )
 
 import System.Exit
 import System.IO -- ( hClose, hFlush, hGetContents, hPutStr )
@@ -33,15 +36,14 @@ data Driver
 ----------------------------------------
 
 -- | GHCi driver, slave process.
-ghci :: Bool -- ^ Verbosity
+ghci :: Verbosity
      -> String -- ^ ghci command name
      -> [String] -- ^ flags
      -> IO Driver
-ghci verbose cmd flags =
-    -- let flags = ("+RTS --install-signal-handlers=yes -K5M -RTS":flags') in
-  do when verbose $
-       do putStrLn $ "system $ " ++ cmd ++ " " ++ concat [ ' ' : a | a <- flags ]
-          putStrLn $ "----------------------------------------\n"
+ghci verbosity cmd flags =
+  do debug verbosity $
+       unlines [ "system $ " ++ cmd ++ " " ++ concat [ ' ' : a | a <- flags ]
+               , "----------------------------------------" ]
      (hin, hout, herr, hpid)
          <- runInteractiveProcess cmd flags Nothing Nothing -- FIXME
 
@@ -59,26 +61,26 @@ ghci verbose cmd flags =
      hClose herr
 
      let load_file f =
-           do cout <- ghci_sync verbose hin hout (":l " ++ f ++ "\n")
+           do cout <- ghci_sync verbosity hin hout (":l " ++ f ++ "\n")
               if not (null cout) && "Ok, modules loaded" `isInfixOf` last cout
                 then return []
                 else return cout
 
      return $ MkDriver
-                { hci_send_cmd = ghci_sync verbose hin hout
+                { hci_send_cmd = ghci_sync verbosity hin hout
                 , hci_load_file = load_file
                 , hci_close = do hPutStr hin ":quit\n"
                                  hFlush hin
                                  waitForProcess hpid
                 }
 
-ghci_sync :: Bool -- ^ Verbosity
+ghci_sync :: Verbosity
           -> Handle -> Handle -> String -> IO [String]
-ghci_sync verbose hin hout inp =
-  do when verbose $
-       do putStrLn $ "--Sync----------------------------------"
-          putStr inp
-          putStrLn $ "----------------------------------------"
+ghci_sync verbosity hin hout inp =
+  do info verbosity $
+          "--Sync----------------------------------\n"
+       ++ inp
+       ++ "----------------------------------------\n"
 
      -- FIXME do we really need the separate thread?
      -- Get output + sync
@@ -93,9 +95,8 @@ ghci_sync verbose hin hout inp =
      -- Synchronize
      hc_output <- lint_output `liftM` takeMVar outMVar
 
-     when verbose $
-       do putStrLn $ ">> Output <<"
-          putStr (unlines hc_output)
+     info verbosity $
+       unlines ( ">> Output <<" : hc_output )
 
      return hc_output
   where
