@@ -19,8 +19,10 @@ module Test.TBC
 -- Dependencies.
 -------------------------------------------------------------------
 
+import System.Exit ( exitFailure )
 import System.FilePath ( (</>), replaceExtension )
 import System.IO.Error -- FIXME
+import System.Posix.Signals ( installHandler, sigINT, Handler(..) )
 
 import Distribution.Package ( packageId )
 import Distribution.PackageDescription
@@ -110,6 +112,18 @@ tbcCabal verbosity args _wtf pkg_descr localbuildinfo =
          Nothing -> putStrLn "GHC not found."
          Just hc_cmd ->
            do d <- ghci verbosity hc_cmd flags
+
+              -- TODO arguably other signals too
+              -- TODO timeouts: although perhaps bad idea to arbitrarily limit time for a test run
+              -- TODO windows: now we need to import unix package for System.Posix.Signals
+              installHandler sigINT (Catch $ do
+                                       hci_kill d
+                                       exitFailure
+                                    ) Nothing
+
               tbc d testRoots
               hci_close d
               return ()
+
+
+

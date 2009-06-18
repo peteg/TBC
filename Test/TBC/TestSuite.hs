@@ -71,7 +71,7 @@ data Test
 data Result
     = TestResultSkip -- ^ FIXME Skip this test
     | TestResultToDo -- ^ This test is not yet done
-    | TestStop -- ^ FIXME Stop testing
+    | TestResultStop -- ^ FIXME Stop testing
     | TestResultSuccess
     | TestResultFailure { msg :: [String] }
       deriving (Show)

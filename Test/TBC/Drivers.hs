@@ -21,17 +21,17 @@ import Distribution.Verbosity ( Verbosity )
 
 import System.Exit
 import System.IO -- ( hClose, hFlush, hGetContents, hPutStr )
-import System.Posix.Signals ( installHandler, sigINT, Handler(..) )
 import System.Process ( runInteractiveProcess, waitForProcess, terminateProcess )
 
 -------------------------------------------------------------------
 
--- Drivers
+-- | Interaction with a Haskell system.
 data Driver
     = MkDriver
-      { hci_send_cmd :: String -> IO [String] -- ^ FIXME exec and return lines of response.
-      , hci_load_file :: String -> IO [String] -- ^ FIXME exec and return lines of response.
-      , hci_close :: IO ExitCode
+      { hci_send_cmd :: String -> IO [String] -- ^ FIXME exec and return lines of response
+      , hci_load_file :: String -> IO [String] -- ^ FIXME load a file
+      , hci_kill :: IO () -- ^ Terminate with prejudice
+      , hci_close :: IO ExitCode -- ^ Clean exit
       }
 
 ----------------------------------------
@@ -48,13 +48,9 @@ ghci verbosity cmd flags =
      (hin, hout, herr, hpid)
          <- runInteractiveProcess cmd flags Nothing Nothing -- FIXME
 
-     -- TODO arguably other signals too
-     -- TODO timeouts: although perhaps bad idea to arbitrarily limit time for a test run
-     -- TODO windows: now we need to import unix package for System.Posix.Signals
-     installHandler sigINT (Catch $ do
-        terminateProcess hpid
-        exitFailure
-      ) Nothing
+     -- Configure GHCi a bit FIXME
+     hPutStrLn hin ":set prompt \"\""
+     hPutStrLn hin "GHC.Handle.hDuplicateTo System.IO.stdout System.IO.stderr"
 
      -- We don't use GHCi's stderr, get rid of it.
      -- FIXME we maybe have to drain it first.
@@ -69,6 +65,7 @@ ghci verbosity cmd flags =
      return $ MkDriver
                 { hci_send_cmd = ghci_sync verbosity hin hout
                 , hci_load_file = load_file
+                , hci_kill = terminateProcess hpid
                 , hci_close = do hPutStr hin ":quit\n"
                                  hFlush hin
                                  waitForProcess hpid
@@ -115,7 +112,7 @@ ghci_sync verbosity hin hout inp =
         where
           sync =
               do l <- hGetLine h
---                  putStrLn $ "hc>> " ++ l
+                 info verbosity $ "hc>> " ++ l -- FIXME should be "debug"
                  if done `isInfixOf` l
                    then return []
                    else (l:) `liftM` sync
