@@ -137,5 +137,9 @@ quiet =
 
     tf s =
       do putStrLn $ "Passed " ++ show (tsPassed s) ++ " / " ++ show (tsRun s)
-                       ++ " (Skipped " ++ show (tsTestsSkipped s) ++ ")"
+                       ++ skipped
          return s
+      where
+        skipped
+            | tsTestsSkipped s == 0 = ""
+            | otherwise = " (Skipped " ++ show (tsTestsSkipped s) ++ ")"

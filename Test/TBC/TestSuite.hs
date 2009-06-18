@@ -69,8 +69,9 @@ data Test
 
 -- | The result of a single 'Test'.
 data Result
-    = TestResultSkip
-    | TestResultToDo
+    = TestResultSkip -- ^ FIXME Skip this test
+    | TestResultToDo -- ^ This test is not yet done
+    | TestStop -- ^ FIXME Stop testing
     | TestResultSuccess
     | TestResultFailure { msg :: [String] }
       deriving (Show)
@@ -88,7 +89,7 @@ data Renderer s
                             -> [String] -- ^ Output from the Haskell system
                             -> s
                             -> IO s
-      , rSkip :: FilePath -> s -> IO s
+      , rSkip :: FilePath -> s -> IO s -- FIXME refine: skipped a file, skipped some tests, some tests told us to skip, ...
       , rStop :: FilePath -> s -> IO s
       , rTest :: Test
               -> s

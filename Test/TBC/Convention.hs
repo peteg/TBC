@@ -131,11 +131,28 @@ quickcheck _ = Nothing
 
 ----------------------------------------
 
+-- | The test should terminate without throwing an exception.
+oktest :: TestConvention
+oktest a@('o':'k':_) = Just run_oktest
+  where
+    name = mkTestName a
+
+    run_oktest d =
+      do r <- hci_send_cmd d $ name ++ "\n"
+         return $ if findException r
+                    then TestResultFailure r
+                    else TestResultSuccess
+
+    findException ls = "*** Exception:" `isPrefixOf` last ls
+oktest _ = Nothing
+
+----------------------------------------
+
 std :: Conventions s
 std = Conventions
       { cDirectory = stdDirectoryConv
       , cTestFile = stdTestFileConv
-      , cTests = [booltest, exception, hunit, quickcheck]
+      , cTests = [booltest, exception, hunit, oktest, quickcheck]
       }
 
 {-
