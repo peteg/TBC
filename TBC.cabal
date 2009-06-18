@@ -32,7 +32,7 @@ Library
     Test.TBC.TestSuite
 
 Executable tbc
-  Build-depends: base, Cabal, directory, filepath, process
+  Build-depends: base, Cabal, directory, filepath, process, unix
   Extensions:
   Ghc-options: -Wall
   main-is: Test/Main.hs

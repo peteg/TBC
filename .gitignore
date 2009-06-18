@@ -4,6 +4,12 @@
 # Cabal temporary locations
 dist/
 
+# for those of us who need raw! blazing! speed! in compilation
+Setup
+
+# mark is weird
+*flymake*
+
 # Build output
 *.hi
 *.o

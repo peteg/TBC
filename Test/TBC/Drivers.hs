@@ -21,7 +21,8 @@ import Distribution.Verbosity ( Verbosity )
 
 import System.Exit
 import System.IO -- ( hClose, hFlush, hGetContents, hPutStr )
-import System.Process ( runInteractiveProcess, waitForProcess )
+import System.Posix.Signals ( installHandler, sigINT, Handler(..) )
+import System.Process ( runInteractiveProcess, waitForProcess, terminateProcess )
 
 -------------------------------------------------------------------
 
@@ -47,9 +48,13 @@ ghci verbosity cmd flags =
      (hin, hout, herr, hpid)
          <- runInteractiveProcess cmd flags Nothing Nothing -- FIXME
 
-     -- Configure GHCi a bit FIXME
-     hPutStrLn hin ":set prompt \"\""
-     hPutStrLn hin "GHC.Handle.hDuplicateTo System.IO.stdout System.IO.stderr"
+     -- TODO arguably other signals too
+     -- TODO timeouts: although perhaps bad idea to arbitrarily limit time for a test run
+     -- TODO windows: now we need to import unix package for System.Posix.Signals
+     installHandler sigINT (Catch $ do
+        terminateProcess hpid
+        exitFailure
+      ) Nothing
 
      -- We don't use GHCi's stderr, get rid of it.
      -- FIXME we maybe have to drain it first.
