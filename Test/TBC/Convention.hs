@@ -58,6 +58,16 @@ stdTestFileConv f s
 -- Test conventions.
 -------------------------------------------------------------------
 
+findException :: [String] -> Bool
+findException ls = "*** Exception:" `isPrefixOf` last ls
+                   || "_exception ::" `isPrefixOf` last ls
+
+
+findTrue :: [String] -> Bool
+findTrue ls = show True == last ls
+
+----------------------------------------
+
 -- | The test should yield the string 'True'. This should work for
 -- tests of type @Bool@, @IO Bool@, @IO ()@ with a @putStrLn@, ...
 booltest :: TestConvention
@@ -70,8 +80,6 @@ booltest a@('t':'e':'s':'t':'_':_) = Just run_booltest
          return $ if findTrue r
                     then TestResultSuccess
                     else TestResultFailure r
-
-    findTrue ls = show True == last ls
 
 booltest _ = Nothing
 
@@ -88,8 +96,6 @@ exception a@('e':'x':'c':'e':'p':'t':'i':'o':'n':_) = Just run_exception
          return $ if findException r
                     then TestResultSuccess
                     else TestResultFailure r
-
-    findException ls = "*** Exception:" `isPrefixOf` last ls
 
 exception _ = Nothing
 
@@ -132,18 +138,18 @@ quickcheck _ = Nothing
 ----------------------------------------
 
 -- | The test should terminate without throwing an exception.
+-- FIXME we really need a DeepSeq here to be sure.
 oktest :: TestConvention
 oktest a@('o':'k':_) = Just run_oktest
   where
     name = mkTestName a
 
     run_oktest d =
-      do r <- hci_send_cmd d $ name ++ "\n"
-         return $ if findException r
-                    then TestResultFailure r
-                    else TestResultSuccess
+      do r <- hci_send_cmd d $ "seq " ++ name ++ " True\n"
+         return $ if findTrue r
+                    then TestResultSuccess
+                    else TestResultFailure r
 
-    findException ls = "*** Exception:" `isPrefixOf` last ls
 oktest _ = Nothing
 
 ----------------------------------------
