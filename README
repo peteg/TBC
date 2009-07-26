@@ -1,5 +1,15 @@
 = TBC: Test by Convention =
 
+Before release:
+ - FIXME more palaver. MORE PALAVER!
+ - wire verbosity into the renderers
+ - consistent reporting of passing/failing tests. if we've written N tests, 
+   that should be reflected in the report, even if they're broken.
+
+- TAP compliant, so we can hook it into buildbot or whatever - no more NIH stuff
+- graceful handling of uncompilable tests
+- talk about test discovery in directory tree
+
 == Conventions ==
 
 Lines beginning with "exception_" are constants that when evaluated
@@ -38,8 +48,6 @@ runghc Setup test v
 for a verbose session. FIXME we'd like to use '-v' but Cabal doesn't
 pass it along.
 
-There are no timeouts.
-
 Don't compile TBC's Setup.hs or GHC will build it in the source dirs
 (and not Cabal's dist/).
 
@@ -53,11 +61,6 @@ hunit_prop_blah =tName equals= prop_blah
  - doesn't make sense to run all the tests for all targets
 - include line number info
 - Hugs/etc. support needs some love from someone who cares
-- FFI/etc. support needs some love from someone who cares
- - there is some basic stuff there, we could scavenge more from cabal-test
-- add flags
-  - verbosity (use Cabal's flags / datatype)
-  - run a particular test file / directory
 - remove the concurrency in the GHCi driver if unnecessary
 - add a Sanity convention
 - add timeouts, restarting GHCi, several GHCi's.
@@ -80,40 +83,22 @@ Figure out why this is so.
 
 = TBC Design Desiderata =
 
-== Nomenclature ==
-
-"Test suite" is a tree, nodes are labelled by testgroups (directory tree)
-"Testgroup" is a set of tests (guts of file)
-A test is something that returns a TestResult.
-
-"Sanity" tests the tests.
-
-A TestFile is a compilable module, yielding a TestGroup or a TestSuite, as defined below.
-
-Abstract type TestResult
- - skip, todo, success/failure, label, (include TestFile filename + line number)
- - and optionally an explanation (can package QC refutations here, or the SKIP/TODO stuff from TAP)
- - NB: provide HUnit interface at least
-
-data TestResult = ok | fail | warn | ...
-
-Abstract type TestSuiteResult
- - corresponds to directory structure, so recursive
- - leaves are TestResult
- - can render to TAP
- - can validate (isOK:: TestSuite
-
-Desiderata
+== Desiderata ==
 
 - implicit
-- directory of tests in conventional place ($PROJECT/t)
+- directory of tests in conventional place ($PROJECT/Tests)
 - minimal boilerplate on individual test files
   - no requirement for module header (hierarchical module names screw us, tests can't be easily moved)
   - convention for "test_", "prop_" - run them as HUnit and QC props.
-   - problem: if the user provides a type sig, we find the test twice.
+
+TODO {
   - if you define mainPlannedTestSuite :: (Plan Int, IO TestSuiteResult), we assume you need control and we'll run it and merge the TAP with other tests. (also mainTestSuite)
   - elsif you define mainTestGroup :: (Plan Int, IO TestGroupResult), we assume you need control and we'll run it and merge the TAP with other tests.
   - elsif you define main :: IO (), we'll treat it as a single test that's passed if it compiles and runs without an exception (?) -- quick and dirty.
+
+  - need some way to choose renderers
+  - possibly also a config file to store prefs
+}
 
 - Test Classes, applying to test suites
  - climb TestSuite tree until we find TestClass.hs
@@ -133,17 +118,4 @@ td/
 t = sanity (\t -> grepTS "test_ && prop_" f)
 
 sanity :: TestSuite -> IO TestResult
-allTestsAreSane :: Test- > IO TestResult
-
-
-CHECKED TO HERE
-
-- consistent reporting of passing/failing tests. if we've written N tests, that should be reflected in the report, even if they're broken.
-- graceful handling of uncompilable tests
-
-- TAP compliant, so we can hook it into buildbot or whatever - no more NIH stuff
-
-- ideally, relatively fast: this is not totally necessary, but loading every single testfile individually into ghci blows a bit.
-
-- DONE handle being ^C'd - kill the slave process too.
-- DONE HUnit support needs some love from someone who cares
+allTestsAreSane :: Test -> IO TestResult

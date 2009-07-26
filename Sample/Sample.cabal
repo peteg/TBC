@@ -1,0 +1,19 @@
+Name: Sample
+Version: 0.0.1
+Cabal-version: >= 1.7
+Build-type: Simple
+Copyright: Peter Gammie, Mark Wotton
+Maintainer: peteg42@gmail.com
+Author: Peter Gammie, Mark Wotton
+License: BSD3
+License-file: LICENSE
+Synopsis: Testing By Convention sample project
+Description:
+
+ Sample project for testing our test framework
+
+Library
+  Build-depends: TBC, base, QuickCheck >= 1.1 && < 2
+  Extensions:
+  Ghc-options: -Wall
+  Exposed-Modules: Sample, Uncompilable
