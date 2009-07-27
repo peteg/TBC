@@ -1,5 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
+-- Simple tbc example. Unfortunately QuickCheck requires us to break
+-- abstraction with Eq and Show instances on 'Stack'.
 module Sample
     (
       Stack
@@ -27,4 +28,8 @@ empty :: Stack a
 empty = Stack []
 
 top :: Stack a -> a
-top = head . unStack 
+top = head . unStack
+
+-- Tests can live in source files. Note this is not exported but is
+-- still run.
+prop_push_empty = property (\x -> push (x::Int) empty /= empty)

@@ -2,15 +2,20 @@
  - Copyright   :  (C)opyright 2009 {mwotton, peteg42} at gmail dot com
  - License     :  BSD3
  -}
-module Test.TBC.TestSuite
+module Test.TBC.Core
     ( DirectoryConvention
     , TestFileConvention
     , TestConvention
     , Action(..)
     , Test(..)
     , Result(..)
-    , Renderer(..)
+    , Renderer
+    , RenderFns(..)
     , Conventions(..)
+
+    , Verbosity
+    , silent, normal, verbose, deafening
+    , warn, notice, setupMessage, info, debug
 
     , Location(..)
     , mkLocation
@@ -29,6 +34,9 @@ import Control.Monad ( liftM, foldM )
 import Data.Char ( isAlpha, isDigit )
 import Data.List ( nubBy )
 import Data.Maybe ( catMaybes )
+
+import Distribution.Simple.Utils ( warn, notice, setupMessage, info, debug )
+import Distribution.Verbosity ( Verbosity, silent, normal, verbose, deafening )
 
 import System.Directory ( Permissions(searchable), getDirectoryContents, getPermissions )
 import System.FilePath ( (</>) )
@@ -80,9 +88,12 @@ data Result
 -- Test output renderers.
 -------------------------------------------------------------------
 
--- | FIXME A renderer...
-data Renderer s
-    = Renderer
+-- | A renderer maps a verbosity level into a bunch of functions that
+-- tells the user of various events.
+type Renderer s = Verbosity -> RenderFns s
+
+data RenderFns s
+    = RenderFns
       { rInitialState :: IO s
       , rCompilationFailure :: FilePath -- ^ TestFile
                             -> [Test] -- ^ Tests in the file
@@ -130,7 +141,7 @@ data Conventions s
 
 -- | Visit all files in a directory tree.
 -- FIXME try to eliminate the "." with some refactoring.
-traverseDirectories :: Conventions s -> Driver -> Renderer s -> [FilePath] -> s -> IO s
+traverseDirectories :: Conventions s -> Driver -> RenderFns s -> [FilePath] -> s -> IO s
 traverseDirectories convs driver renderer paths s0 = snd `liftM` walk s0 "." paths
   where
     fold s path =
@@ -157,7 +168,7 @@ traverseDirectories convs driver renderer paths s0 = snd `liftM` walk s0 "." pat
 
 -- | Execute all tests in a given test file, if it passes the
 -- 'cTestFile' convention.
-testFile :: Conventions s -> Driver -> Renderer s -> s -> FilePath -> IO (Action, s)
+testFile :: Conventions s -> Driver -> RenderFns s -> s -> FilePath -> IO (Action, s)
 testFile convs driver renderer s0 f =
     case cTestFile convs f s0 of
       as'@(Stop, _s) -> return as' -- Stop testing.

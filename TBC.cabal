@@ -8,10 +8,11 @@ Author: Peter Gammie, Mark Wotton
 License: BSD3
 License-file: LICENSE
 Synopsis: Testing By Convention
+Category: Testing
 Description:
 
  TBC is a harness for running tests, relying on other libraries such
- as QuickCheck to do the actual testing. If the tests follow
+ as QuickCheck and HUnit to do the actual testing. If the tests follow
  conventions, TBC lets you skip a lot of boilerplate.
 
 Extra-Source-Files: README
@@ -21,15 +22,15 @@ source-repository head
   location: git://github.com/peteg/TBC.git
 
 Library
-  Build-depends: base, Cabal, directory, filepath, process
+  Build-depends: base >= 4 && < 5, Cabal, directory, filepath, process
   Extensions:
   Ghc-options: -Wall
   Exposed-Modules: Test.TBC
   Other-modules:
     Test.TBC.Convention
+    Test.TBC.Core
     Test.TBC.Drivers
     Test.TBC.Renderers
-    Test.TBC.TestSuite
 
 Executable tbc
   Build-depends: base, Cabal, directory, filepath, process, unix

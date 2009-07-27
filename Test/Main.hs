@@ -8,7 +8,7 @@ module Main ( main ) where
 -- Dependencies.
 -------------------------------------------------------------------
 
-import Control.Monad ( unless )
+import Control.Monad ( unless, when )
 import Data.List ( foldl', isSuffixOf )
 
 import Distribution.Simple
@@ -17,7 +17,6 @@ import Distribution.Simple.UserHooks ( UserHooks, emptyUserHooks )
 import Distribution.Simple.LocalBuildInfo
 import Distribution.Simple.Program ( builtinPrograms, restoreProgramConfiguration )
 import Distribution.Simple.Setup ( defaultDistPref )
-import Distribution.Verbosity ( Verbosity, normal, verbose )
 
 import System.Directory ( getCurrentDirectory, getDirectoryContents, setCurrentDirectory )
 import System.Exit -- ( ExitFailure, exitWith )
@@ -26,7 +25,7 @@ import System.FilePath -- ( takeDirectory ) -- FIXME
 
 import qualified System.Console.GetOpt as GetOpt
 
-import Test.TBC ( tbcCabal )
+import Test.TBC
 
 -------------------------------------------------------------------
 -- TBC-as-an-executable.
@@ -58,14 +57,12 @@ findCabal = getCurrentDirectory >>= searchUp ["."] . splitPath
 data Options =
     Options
     { optVerbosity   :: Verbosity
-    , optShowVersion :: Bool
     } deriving Show
 
 defaultOptions :: Options
 defaultOptions =
     Options
     { optVerbosity   = normal
-    , optShowVersion = False
     }
 
 -- | FIXME use intToVerbosity
@@ -74,9 +71,6 @@ options =
     [ GetOpt.Option ['v']     ["verbose"]
         (GetOpt.NoArg (\ opts -> opts { optVerbosity = verbose }))
         "chatty output on stdout"
-    , GetOpt.Option ['V','?'] ["version"]
-        (GetOpt.NoArg (\ opts -> opts { optShowVersion = True }))
-        "show version number"
     ]
 
 progOpts :: [String] -> IO (Options, [String])
@@ -92,13 +86,12 @@ progOpts argv =
 
 -- | FIXME infinite room for improvement.
 -- FIXME Make use of the options
--- FIXME Be careful if we're in the project dir and "Tests/" exists. ???
 main :: IO ()
 main =
  do (opts, tests) <- progOpts =<< getArgs
 
+    debug (optVerbosity opts) $ "Options: " ++ show opts
     unless (null tests) $ putStrLn $ "Testing: " ++ show tests
-    putStrLn $ "Options: " ++ show opts
 
     cabalLoc <- findCabal
     case cabalLoc of
@@ -107,10 +100,12 @@ main =
            exitWith (ExitFailure 1)
       Just (testPath, root, cabalFile) ->
         do
-           putStrLn $ "Running tests with Cabal file: '" ++ cabalFile ++ "' in directory: " ++ testPath
+           info (optVerbosity opts) $
+             "Running tests with Cabal file: '" ++ cabalFile ++ "' in directory: " ++ testPath
            -- Change to the project root directory
            setCurrentDirectory root
-           -- getCurrentDirectory >>= \s -> putStrLn $ "In directory: " ++ s
+           when (optVerbosity opts >= deafening) $
+             getCurrentDirectory >>= \s -> putStrLn $ "In directory: " ++ s
 
            -- FIXME assume the dist/ dir is with the .cabal file.
            -- No good evidence for this except it's the Simple thing to do.
@@ -127,7 +122,7 @@ main =
 
 ----------------------------------------
 
--- Stuff ripped from Cabal. *sigh* Why not export more stuff?
+-- Ripped from Cabal. *sigh* Why not export more stuff?
 
 -- | FIXME we assume the user isn't doing anything clever with
 -- UserHooks. This info lies in Setup.hs, a bit beyond our reach.

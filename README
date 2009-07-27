@@ -1,37 +1,39 @@
 = TBC: Test by Convention =
 
-Before release:
- - FIXME more palaver. MORE PALAVER!
- - wire verbosity into the renderers
- - consistent reporting of passing/failing tests. if we've written N tests, 
-   that should be reflected in the report, even if they're broken.
+TBC provides two features:
 
-- TAP compliant, so we can hook it into buildbot or whatever - no more NIH stuff
-- graceful handling of uncompilable tests
-- talk about test discovery in directory tree
+- It attempts to compile and run all tests, even if some do not
+  compile or run.
+- Aspiring to the write-it-once principle, tests following
+  conventions require a lot less boilerplate.
+
+Inspired by test-based development, our aim is not to displace
+existing tools such as QuickCheck and HUnit but to make a project's
+tests more useful when things are in an inconsistent state. TBC is
+also useful for supporting 'what-if' experiments, aiding program
+comprehension.
+
+TBC is presently alpha. It has proven useful to the authors but is
+embryonic in many ways.
+
+The directory 'Sample/' contains a sample project following TBC
+conventions. We suggest running 'tbc' in that directory as a quick way
+of understanding what it can do.
 
 == Conventions ==
 
-Lines beginning with "exception_" are constants that when evaluated
-throw an exception.
+Tests live in $PROJECT/Tests. Test-specific hierarchical modules can
+also exist there.
 
-Lines beginning with "hunit_" are HUnit tests: TBC applies "runTestTT
-. test" to them.
+Within a test file, lines beginning with _ should _ when evaluated:
 
-Lines beginning with "ok_" are constants that when evaluated do not
-throw an exception.
-
-Lines beginning "prop_" are QuickCheck tests: TBC applies "test" to them.
-
-Lines beginning "test_" are boolean tests (of type Bool or IO Bool or
-IO () with a print statement or ...): TBC runs them and expects the
-final line of output to be "True".
-
-Lines beginning "hunit_" are HUnit tests, or assertions, or lists of
-assertions/tests.
-
-Tests live in $PROJECT/Tests so test-specific hierarchical modules can
-exist there.
+"exception_" / throw an exception.
+"hunit_" / be HUnit tests: TBC applies "runTestTT . test" to them.
+"ok_" / not throw an exception.
+"prop_" / be QuickCheck tests: TBC applies "test" to them.
+"test_" / be boolean tests (of type Bool or IO Bool or IO () with a
+print statement or ...): TBC runs them and expects the final line of
+output to be "True".
 
 The tests themselves must ensure the test framework (QuickCheck, etc.)
 is in scope, i.e. be executable as they are in GHCi.
@@ -39,83 +41,39 @@ is in scope, i.e. be executable as they are in GHCi.
 The 'tbc' executable will search upwards for a '.cabal' file and
 assumes the 'dist/' directory is in the same place.
 
+== Invocation ==
+
+There are two ways to use TBC:
+
+- as a Cabal 'test' hook. This is not recommended as packages that do
+  this cannot be uploaded to hackage. Perhaps changes in Cabal will
+  make this more useful.
+
+- invoking the 'tbc' executable.
+
+The 'tbc' executable will search upwards in the directory hierarchy
+for a .cabal file, and then go looking for tests in the current
+directory and its children.
+
+Presently it is best to run 'tbc' in the directory containing the
+tests (or a subdirectory of it).
+
 == Gotchas ==
 
 Say:
 
-runghc Setup test v
+tbc -v
 
-for a verbose session. FIXME we'd like to use '-v' but Cabal doesn't
-pass it along.
+for a verbose session.
 
-Don't compile TBC's Setup.hs or GHC will build it in the source dirs
-(and not Cabal's dist/).
+It seems that the parts of Cabal that TBC depends on change
+frequently. TBC has only been tested with the latest Cabal (>= 1.7)
+from the darcs repository. It is probably not difficult to make it
+work with earlier Cabals.
 
 Conventions must retain the full name of the test, otherwise we run
 into some nasty lexical issues, e.g. to avoid:
 
 hunit_prop_blah =tName equals= prop_blah
 
-- generalise Cabal support
- - currently assumes there's a single target (only tested for 'Library')
- - doesn't make sense to run all the tests for all targets
-- include line number info
-- Hugs/etc. support needs some love from someone who cares
-- remove the concurrency in the GHCi driver if unnecessary
-- add a Sanity convention
-- add timeouts, restarting GHCi, several GHCi's.
-  - really? how do we know how long tests should take?
-
-Works now: allow it to use cabal-built objects from dist/build
-... but: investigate the GHCi module header bug
- - leaving off "module T where" from the top of tests yields e.g.
-
-not ok 13 - Tests/00_Circuits/022_xor_loop.hs:prop_correct
-# <interactive>:1:5:
-#     Can't find interface-file declaration for variable prop_correct
-#       Probable cause: bug in .hi-boot file, or inconsistent .hi file
-#       Use -ddump-if-trace to get an idea of which file caused the error
-#     In the first argument of `test', namely `prop_correct'
-#     In the expression: test prop_correct
-#     In the definition of `it': it = test prop_correct
-
-Figure out why this is so.
-
-= TBC Design Desiderata =
-
-== Desiderata ==
-
-- implicit
-- directory of tests in conventional place ($PROJECT/Tests)
-- minimal boilerplate on individual test files
-  - no requirement for module header (hierarchical module names screw us, tests can't be easily moved)
-  - convention for "test_", "prop_" - run them as HUnit and QC props.
-
-TODO {
-  - if you define mainPlannedTestSuite :: (Plan Int, IO TestSuiteResult), we assume you need control and we'll run it and merge the TAP with other tests. (also mainTestSuite)
-  - elsif you define mainTestGroup :: (Plan Int, IO TestGroupResult), we assume you need control and we'll run it and merge the TAP with other tests.
-  - elsif you define main :: IO (), we'll treat it as a single test that's passed if it compiles and runs without an exception (?) -- quick and dirty.
-
-  - need some way to choose renderers
-  - possibly also a config file to store prefs
-}
-
-- Test Classes, applying to test suites
- - climb TestSuite tree until we find TestClass.hs
- - contains vetTestSuite :: FilePath -> IO TestResult
-   - provide recursive enumTests :: FilePath -> (FilePath -> IO a) -> IO a
- - this is really testing the test suite for various properties. more thought.
-
-t/
-000_sanity.hs
-td/
- 00_t
- 01_t
- 02_myCleverMainTSR.hs
-
-000_sanity.hs:
-
-t = sanity (\t -> grepTS "test_ && prop_" f)
-
-sanity :: TestSuite -> IO TestResult
-allTestsAreSane :: Test -> IO TestResult
+We only support GHCi on *NIX presently.

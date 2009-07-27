@@ -1,0 +1,67 @@
+- generalise Cabal support
+ - currently assumes there's a single target (only tested for 'Library')
+ - doesn't make sense to run all the tests for all targets
+- include line number info
+- Hugs/etc. support needs some love from someone who cares
+- remove the concurrency in the GHCi driver if possible
+- add a Sanity convention
+- add timeouts, restarting GHCi, several GHCi's.
+  - really? how do we know how long tests should take?
+- run several GHCis concurrently
+
+Works now: allow it to use cabal-built objects from dist/build
+... but: investigate the GHCi module header bug
+ - leaving off "module T where" from the top of tests yields e.g.
+
+not ok 13 - Tests/00_Circuits/022_xor_loop.hs:prop_correct
+# <interactive>:1:5:
+#     Can't find interface-file declaration for variable prop_correct
+#       Probable cause: bug in .hi-boot file, or inconsistent .hi file
+#       Use -ddump-if-trace to get an idea of which file caused the error
+#     In the first argument of `test', namely `prop_correct'
+#     In the expression: test prop_correct
+#     In the definition of `it': it = test prop_correct
+
+= TBC Design Desiderata =
+
+- implicit
+- directory of tests in conventional place ($PROJECT/Tests)
+- minimal boilerplate on individual test files
+  - no requirement for module header (hierarchical module names screw us, tests can't be easily moved)
+  - convention for "test_", "prop_" - run them as HUnit and QC props.
+- uses Cabal to build the project, and supports the FFI, etc.
+
+- consistent reporting of passing/failing tests. if we've written N tests,
+   that should be reflected in the report, even if they're broken.
+- TAP compliant, so we can hook it into buildbot or whatever - no more NIH stuff
+- graceful handling of uncompilable tests
+- talk about test discovery in directory tree
+
+TODO {
+  - if you define mainPlannedTestSuite :: (Plan Int, IO TestSuiteResult), we assume you need control and we'll run it and merge the TAP with other tests. (also mainTestSuite)
+  - elsif you define mainTestGroup :: (Plan Int, IO TestGroupResult), we assume you need control and we'll run it and merge the TAP with other tests.
+  - elsif you define main :: IO (), we'll treat it as a single test that's passed if it compiles and runs without an exception (?) -- quick and dirty.
+
+  - need some way to choose renderers
+  - possibly also a config file to store prefs
+}
+
+- Test Classes, applying to test suites
+ - climb TestSuite tree until we find TestClass.hs
+ - contains vetTestSuite :: FilePath -> IO TestResult
+   - provide recursive enumTests :: FilePath -> (FilePath -> IO a) -> IO a
+ - this is really testing the test suite for various properties. more thought.
+
+t/
+000_sanity.hs
+td/
+ 00_t
+ 01_t
+ 02_myCleverMainTSR.hs
+
+000_sanity.hs:
+
+t = sanity (\t -> grepTS "test_ && prop_" f)
+
+sanity :: TestSuite -> IO TestResult
+allTestsAreSane :: Test -> IO TestResult

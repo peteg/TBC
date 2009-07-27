@@ -2,13 +2,12 @@
  - Copyright   :  (C)opyright 2009 {mwotton, peteg42} at gmail dot com
  - License     :  BSD3
  -
- - FIXME First cut
- -
  - Idea is to apply each of these tests to each line of a 'TestFile'
  - and collate the resulting 'TestSuite'.
  -
  - FIXME Import qualified.
  - FIXME tests that appear in block comments {- -} are still picked up.
+ - FIXME we'd really like an EDSL here.
  -}
 module Test.TBC.Convention
     ( booltest
@@ -29,14 +28,14 @@ import Data.List -- ( isPrefixOf )
 import System.FilePath ( splitPath, takeExtension )
 
 import Test.TBC.Drivers ( Driver(..) )
-import Test.TBC.TestSuite
+import Test.TBC.Core
 
 -------------------------------------------------------------------
 -- Directory conventions.
 -------------------------------------------------------------------
 
--- FIXME ignore .git, etc.
-
+-- | Skip the @.darcs@ and @.git@ directories.
+-- FIXME could imagine trying to skip subproject directories.
 stdDirectoryConv :: DirectoryConvention s
 stdDirectoryConv fulldir s
     | dir `elem` [".darcs", ".git"] = (Skip, s)
@@ -62,7 +61,6 @@ findException :: [String] -> Bool
 findException ls = "*** Exception:" `isPrefixOf` last ls
                    || "_exception ::" `isPrefixOf` last ls
 
-
 findTrue :: [String] -> Bool
 findTrue ls = show True == last ls
 
@@ -70,6 +68,9 @@ findTrue ls = show True == last ls
 
 -- | The test should yield the string 'True'. This should work for
 -- tests of type @Bool@, @IO Bool@, @IO ()@ with a @putStrLn@, ...
+-- Note the 'seq' is not entirely useless: the test may use
+-- 'unsafePerformIO' or 'trace' to incidentally output things after
+-- 'True'.
 booltest :: TestConvention
 booltest a@('t':'e':'s':'t':'_':_) = Just run_booltest
   where

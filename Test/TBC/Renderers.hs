@@ -11,7 +11,8 @@ module Test.TBC.Renderers
 -- Dependencies.
 -------------------------------------------------------------------
 
-import Test.TBC.TestSuite ( Renderer(..), Result(..), Test(..) )
+import Test.TBC.Core ( Renderer, RenderFns(..), Result(..), Test(..)
+                     , info )
 
 -------------------------------------------------------------------
 -- TAP renderer.
@@ -39,8 +40,8 @@ tapState0 = TapState
             }
 
 tap :: Renderer TapState
-tap =
-    Renderer
+tap verbosity =
+    RenderFns
     { rInitialState = return tapState0
     , rCompilationFailure = tcf
     , rSkip = tskip
@@ -59,7 +60,7 @@ tap =
          return s{ tsCompilationFailures = tsCompilationFailures s + 1 }
 
     tskip f s =
-      do putStrLn $ "Skipping " ++ f
+      do info verbosity $ "Skipping " ++ f
          return s{ tsTestFilesSkipped = tsTestFilesSkipped s + 1 }
 
     tstop f s =
@@ -93,13 +94,11 @@ tap =
          return s
 
 -------------------------------------------------------------------
--- Quiet renderer: only interested in failures.
--------------------------------------------------------------------
 
--- Only interested in failures.
+-- | UNIX style: only reports failures.
 quiet :: Renderer TapState
-quiet =
-    Renderer
+quiet verbosity =
+    RenderFns
     { rInitialState = return tapState0
     , rCompilationFailure = tcf
     , rSkip = tskip
@@ -115,13 +114,14 @@ quiet =
          return s{ tsCompilationFailures = tsCompilationFailures s + 1 }
 
     tskip f s =
-      do putStrLn $ "Skipping " ++ f
+      do info verbosity $ "Skipping " ++ f
          return s{ tsTestFilesSkipped = tsTestFilesSkipped s + 1 }
 
     tstop f s =
       do putStrLn $ "Stopping at " ++ f
          return s
 
+    -- FIXME in a big way
     tt t s r =
       case r of
         TestResultFailure strs ->

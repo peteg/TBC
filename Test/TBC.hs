@@ -5,8 +5,8 @@
 module Test.TBC
     ( -- * FIXME Conventions, data structures.
       module Conv
+    , module Core
     , module Drivers
-    , module TestSuite
 
       -- * Top-level drivers.
     , tbc
@@ -39,7 +39,7 @@ import Distribution.Verbosity ( Verbosity, normal )
 import Test.TBC.Convention as Conv
 import Test.TBC.Drivers as Drivers
 import Test.TBC.Renderers as Renderers
-import Test.TBC.TestSuite as TestSuite
+import Test.TBC.Core as Core
 
 -------------------------------------------------------------------
 -- TBC-as-a-library.
@@ -47,7 +47,7 @@ import Test.TBC.TestSuite as TestSuite
 
 -- | FIXME Bells and whistles driver.
 -- FIXME invoke the renderer functions appropriately.
-tbcWithHooks :: Conventions s -> Renderer s -> Driver -> [FilePath] -> IO ()
+tbcWithHooks :: Conventions s -> RenderFns s -> Driver -> [FilePath] -> IO ()
 tbcWithHooks convs renderer driver testRoots =
   (      rInitialState renderer
      >>= traverseDirectories convs driver renderer testRoots
@@ -59,7 +59,7 @@ tbcWithHooks convs renderer driver testRoots =
 
 -- | FIXME Conventional driver.
 tbc :: Driver -> [FilePath] -> IO ()
-tbc = tbcWithHooks Conv.std Renderers.quiet
+tbc = tbcWithHooks Conv.std (Renderers.quiet Core.normal)
 
 ----------------------------------------
 -- Cabal support.
@@ -71,7 +71,6 @@ defaultMain = DS.defaultMainWithHooks hooks
     where hooks = DS.simpleUserHooks { DS.runTests = tbcCabal normal }
 
 -- | A driver compatible with Cabal's 'runTests' hook.
--- FIXME assume we're running in the top-level project directory.
 -- FIXME generalise to Hugs, etc.
 -- FIXME how do we get flags? Verbosity?
 tbcCabal :: Verbosity
@@ -124,6 +123,3 @@ tbcCabal verbosity args _wtf pkg_descr localbuildinfo =
               tbc d testRoots
               hci_close d
               return ()
-
-
-
