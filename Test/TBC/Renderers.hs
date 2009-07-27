@@ -11,6 +11,7 @@ module Test.TBC.Renderers
 -- Dependencies.
 -------------------------------------------------------------------
 
+import System.Exit ( ExitCode(ExitSuccess, ExitFailure) )
 import Test.TBC.Core ( Renderer, RenderFns(..), Result(..), Test(..)
                      , info )
 
@@ -38,6 +39,10 @@ tapState0 = TapState
             , tsTestFilesSkipped = 0
             , tsCompilationFailures = 0
             }
+
+success :: TapState -> Bool
+success s = tsPassed s == tsRun s && tsCompilationFailures s == 0
+
 
 tap :: Renderer TapState
 tap verbosity =
@@ -91,7 +96,7 @@ tap verbosity =
 
     tf s =
       do putStrLn $ "0.." ++ show (tsRun s + tsTestsSkipped s - 1)
-         return s
+         return (if success s then ExitSuccess else ExitFailure 1)
 
 -------------------------------------------------------------------
 
@@ -144,7 +149,7 @@ quiet verbosity =
     tf s =
       do putStrLn $ "Passed " ++ show (tsPassed s) ++ " / " ++ show (tsRun s)
                        ++ skipped ++ cfail
-         return s
+         return (if success s then ExitSuccess else ExitFailure 1)
       where
         cfail
             | tsCompilationFailures s == 0 = ""
@@ -153,3 +158,4 @@ quiet verbosity =
         skipped
             | tsTestsSkipped s == 0 = ""
             | otherwise = " (Skipped " ++ show (tsTestsSkipped s) ++ ")"
+

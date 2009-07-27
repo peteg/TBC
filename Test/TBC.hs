@@ -19,7 +19,7 @@ module Test.TBC
 -- Dependencies.
 -------------------------------------------------------------------
 
-import System.Exit ( exitFailure )
+import System.Exit ( ExitCode(ExitFailure), exitFailure, exitWith )
 import System.FilePath ( (</>), replaceExtension )
 import System.IO.Error -- FIXME
 import System.Posix.Signals ( installHandler, sigINT, Handler(..) )
@@ -34,7 +34,6 @@ import Distribution.Simple.GHC ( ghcOptions )
 import Distribution.Simple.LocalBuildInfo ( LocalBuildInfo, buildDir, withLibLBI, withPrograms )
 import Distribution.Simple.Program ( ghcProgram, lookupProgram, programPath )
 import Distribution.Text ( display )
-import Distribution.Verbosity ( Verbosity, normal )
 
 import Test.TBC.Convention as Conv
 import Test.TBC.Drivers as Drivers
@@ -47,19 +46,20 @@ import Test.TBC.Core as Core
 
 -- | FIXME Bells and whistles driver.
 -- FIXME invoke the renderer functions appropriately.
-tbcWithHooks :: Conventions s -> RenderFns s -> Driver -> [FilePath] -> IO ()
+tbcWithHooks :: Conventions s -> RenderFns s -> Driver -> [FilePath] -> IO ExitCode
 tbcWithHooks convs renderer driver testRoots =
   (      rInitialState renderer
      >>= traverseDirectories convs driver renderer testRoots
      >>= rFinal renderer
-     >>  return ()
   ) `catch` handler
   where
-    handler e = putStrLn ("TBC: " ++ show e)
+    handler e = putStrLn ("TBC: " ++ show e) >> return (ExitFailure 1)
 
 -- | FIXME Conventional driver.
 tbc :: Driver -> [FilePath] -> IO ()
-tbc = tbcWithHooks Conv.std (Renderers.quiet Core.normal)
+tbc driver testRoots =
+       tbcWithHooks Conv.std (Renderers.quiet Core.normal) driver testRoots
+    >> return ()
 
 ----------------------------------------
 -- Cabal support.
@@ -77,6 +77,14 @@ tbcCabal :: Verbosity
          -> DS.Args -- ^ Where are the tests (dirs and files)?
          -> Bool -> PackageDescription -> LocalBuildInfo -> IO ()
 tbcCabal verbosity args _wtf pkg_descr localbuildinfo =
+    cabalDriver verbosity args pkg_descr localbuildinfo >> return ()
+
+-- | Core Cabal-based driver.
+-- FIXME generalise to Hugs, etc.
+-- FIXME withLibLBI should use IO a, not IO (). Hack around it for
+-- now: this function exits.
+cabalDriver :: Verbosity -> DS.Args -> PackageDescription -> LocalBuildInfo -> IO ()
+cabalDriver verbosity args pkg_descr localbuildinfo =
   withLibLBI pkg_descr localbuildinfo $ \_lib clbi ->
     do let
            testRoots
@@ -110,16 +118,16 @@ tbcCabal verbosity args _wtf pkg_descr localbuildinfo =
        case cmd of
          Nothing -> putStrLn "GHC not found."
          Just hc_cmd ->
-           do d <- ghci verbosity hc_cmd flags
+           do driver <- ghci verbosity hc_cmd flags
 
               -- TODO arguably other signals too
               -- TODO timeouts: although perhaps bad idea to arbitrarily limit time for a test run
               -- TODO windows: now we need to import unix package for System.Posix.Signals
               installHandler sigINT (Catch $ do
-                                       hci_kill d
+                                       hci_kill driver
                                        exitFailure
                                     ) Nothing
 
-              tbc d testRoots
-              hci_close d
-              return ()
+              exitCode <- tbcWithHooks Conv.std (Renderers.quiet Core.normal) driver testRoots
+              hci_close driver
+              exitWith exitCode -- FIXME hack around Cabal's restrictive types.

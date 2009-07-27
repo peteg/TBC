@@ -39,6 +39,7 @@ import Distribution.Simple.Utils ( warn, notice, setupMessage, info, debug )
 import Distribution.Verbosity ( Verbosity, silent, normal, verbose, deafening )
 
 import System.Directory ( Permissions(searchable), getDirectoryContents, getPermissions )
+import System.Exit ( ExitCode )
 import System.FilePath ( (</>) )
 
 import Test.TBC.Drivers ( Driver(hci_load_file) )
@@ -106,7 +107,7 @@ data RenderFns s
               -> s
               -> Result
               -> IO s
-      , rFinal :: s -> IO s
+      , rFinal :: s -> IO ExitCode
       }
 
 -------------------------------------------------------------------
