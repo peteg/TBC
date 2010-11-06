@@ -25,6 +25,7 @@ module Test.TBC.Convention
 -------------------------------------------------------------------
 
 import Data.List -- ( isPrefixOf )
+import Data.Char (isSpace)
 import System.FilePath ( splitPath, takeExtension )
 
 import Test.TBC.Drivers ( Driver(..) )
@@ -155,12 +156,21 @@ oktest _ = Nothing
 
 ----------------------------------------
 
+-- | We might need to remove bird tracks from an lhs file.
+unlittest :: TestConvention -> TestConvention
+unlittest c ('>':ln) = c $ dropWhile isSpace ln
+unlittest c ln       = c ln
+
+----------------------------------------
+
 std :: Conventions s
 std = Conventions
       { cDirectory = stdDirectoryConv
       , cTestFile = stdTestFileConv
-      , cTests = [booltest, exception, hunit, oktest, quickcheck]
+      , cTests = map unlittest tests ++ tests
       }
+  where
+    tests = [booltest, exception, hunit, oktest, quickcheck]
 
 {-
 FIXME
