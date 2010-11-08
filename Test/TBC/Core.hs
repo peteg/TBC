@@ -31,7 +31,7 @@ module Test.TBC.Core
 
 import Control.Monad ( liftM, foldM )
 
-import Data.Char ( isAlpha, isDigit )
+import Data.Char ( isAlpha, isDigit, isSpace )
 import Data.List ( nubBy )
 import Data.Maybe ( catMaybes )
 
@@ -66,7 +66,10 @@ instance Show Location where
 -- starting at the start of the string. FIXME this should follow the
 -- Haskell lexical conventions and perhaps be more robust.
 mkTestName :: String -> String
-mkTestName = takeWhile (\c -> or (map ($c) [ isAlpha, isDigit, (`elem` ['_', '\'']) ]))
+mkTestName = takeWhile (\c -> or (map ($c) [ isAlpha, isDigit, (`elem` ['_', '\'']) ])) . unlit
+  where
+    unlit ('>':cs) = dropWhile isSpace cs
+    unlit str      = str
 
 -- | A single test.
 data Test
