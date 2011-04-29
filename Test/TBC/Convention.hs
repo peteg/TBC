@@ -127,7 +127,7 @@ quickcheck a@('p':'r':'o':'p':'_':_) = Just run_quickcheck_test
     name = mkTestName a
 
     run_quickcheck_test d =
-      do r <- hci_send_cmd d $ "test " ++ name ++ "\n"
+      do r <- hci_send_cmd d $ "Test.QuickCheck.quickCheck " ++ name ++ "\n"
          return $ if findOK r
                     then TestResultSuccess
                     else TestResultFailure r

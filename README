@@ -76,4 +76,15 @@ into some nasty lexical issues, e.g. to avoid:
 
 hunit_prop_blah =tName equals= prop_blah
 
-We only support GHCi on *NIX presently.
+We only support GHCi on *NIX (including OS X) presently.
+
+== Changes ==
+
+0.0.1
+  Initial release
+0.0.2
+  The tbc binary exits with status 1 if anything goes wrong, 0 otherwise
+  Fixed GHCi scoping issue (say ":l *filename" instead of ":l filename" - perhaps new with GHC 7.
+  Works with the Haskell Platform 2011.2.0.1
+   - GHC 7.0.3
+   - QuickCheck 2

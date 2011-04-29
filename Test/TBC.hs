@@ -21,14 +21,13 @@ module Test.TBC
 
 import System.Exit ( ExitCode(ExitFailure), exitFailure, exitWith )
 import System.FilePath ( (</>), replaceExtension )
-import System.IO.Error -- FIXME
 import System.Posix.Signals ( installHandler, sigINT, Handler(..) )
 
 import Distribution.Package ( packageId )
 import Distribution.PackageDescription
     ( PackageDescription, allBuildInfo
     , BuildInfo(cSources, extraLibs, extraLibDirs) )
-import qualified Distribution.Simple as DS
+import qualified Distribution.Simple as DS -- FIXME update
 import Distribution.Simple.BuildPaths ( objExtension )
 import Distribution.Simple.GHC ( ghcOptions )
 import Distribution.Simple.LocalBuildInfo ( LocalBuildInfo, buildDir, withLibLBI, withPrograms )
@@ -123,11 +122,11 @@ cabalDriver verbosity args pkg_descr localbuildinfo =
               -- TODO arguably other signals too
               -- TODO timeouts: although perhaps bad idea to arbitrarily limit time for a test run
               -- TODO windows: now we need to import unix package for System.Posix.Signals
-              installHandler sigINT (Catch $ do
-                                       hci_kill driver
-                                       exitFailure
-                                    ) Nothing
+              _ <- installHandler sigINT (Catch $ do
+                                             hci_kill driver
+                                             exitFailure
+                                         ) Nothing
 
               exitCode <- tbcWithHooks Conv.std (Renderers.quiet Core.normal) driver testRoots
-              hci_close driver
+              _ <- hci_close driver
               exitWith exitCode -- FIXME hack around Cabal's restrictive types.

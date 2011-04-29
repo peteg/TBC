@@ -57,7 +57,7 @@ ghci verbosity cmd flags =
      hClose herr
 
      let load_file f =
-           do cout <- ghci_sync verbosity hin hout (":l " ++ f ++ "\n")
+           do cout <- ghci_sync verbosity hin hout (":l *" ++ f ++ "\n")
               if not (null cout) && "Ok, modules loaded" `isInfixOf` last cout
                 then return []
                 else return cout
@@ -82,7 +82,7 @@ ghci_sync verbosity hin hout inp =
      -- FIXME do we really need the separate thread?
      -- Get output + sync
      outMVar <- newEmptyMVar
-     forkIO $ hc_sync hout >>= putMVar outMVar
+     _ <- forkIO $ hc_sync hout >>= putMVar outMVar
 
      -- Tests + sync
      hPutStr hin inp

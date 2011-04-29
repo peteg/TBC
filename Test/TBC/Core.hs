@@ -174,7 +174,7 @@ testFile convs driver renderer s0 f =
     case cTestFile convs f s0 of
       as'@(Stop, _s) -> return as' -- Stop testing.
       (Skip, s)      ->
-        do rSkip renderer f s
+        do _ <-rSkip renderer f s
            return (Cont, s) -- ... but continue testing.
       (Cont, s)      ->
         do -- putStrLn $ "Running: " ++ f

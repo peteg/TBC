@@ -6,14 +6,14 @@ Copyright: Peter Gammie, Mark Wotton
 Maintainer: peteg42@gmail.com
 Author: Peter Gammie, Mark Wotton
 License: BSD3
-License-file: LICENSE
+License-file: ../LICENSE
 Synopsis: Testing By Convention sample project
 Description:
 
  Sample project for testing our test framework
 
 Library
-  Build-depends: TBC, base, QuickCheck >= 1.1 && < 2
+  Build-depends: TBC, base, QuickCheck >= 2 && < 3
   Extensions:
   Ghc-options: -Wall
   Exposed-Modules: Sample, Uncompilable

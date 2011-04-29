@@ -1,3 +1,8 @@
+If a test has type IO (), ghci may say nothing.
+
+Use Control.Parallel.Strategies.rnf (roughly) in the exception (etc)
+conventions.
+
 - generalise Cabal support
  - currently assumes there's a single target (only tested for 'Library')
  - doesn't make sense to run all the tests for all targets

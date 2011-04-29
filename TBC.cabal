@@ -1,5 +1,5 @@
 Name: TBC
-Version: 0.0.1
+Version: 0.0.2
 Cabal-version: >= 1.7
 Build-type: Simple
 Copyright: Peter Gammie, Mark Wotton
@@ -13,7 +13,9 @@ Description:
 
  TBC is a harness for running tests, relying on other libraries such
  as QuickCheck and HUnit to do the actual testing. If the tests follow
- conventions, TBC lets you skip a lot of boilerplate.
+ conventions, TBC lets you skip a lot of boilerplate. It also supports
+ test-driven development (TDD) by running as many tests as it can
+ compile, whatever the state of the project as a whole.
 
 Extra-Source-Files: README
 
@@ -22,7 +24,7 @@ source-repository head
   location: git://github.com/peteg/TBC.git
 
 Library
-  Build-depends: base >= 4 && < 5, Cabal, directory, filepath, process
+  Build-depends: base >= 4 && < 5, Cabal >= 1.10 && < 2, directory, filepath, process
   Extensions:
   Ghc-options: -Wall
   Exposed-Modules: Test.TBC
