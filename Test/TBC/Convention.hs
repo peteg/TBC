@@ -35,10 +35,11 @@ import Test.TBC.Core
 -------------------------------------------------------------------
 
 -- | Skip the @.darcs@ and @.git@ directories.
+-- FIXME also skip Cabal's @dist@ directory.
 -- FIXME could imagine trying to skip subproject directories.
 stdDirectoryConv :: DirectoryConvention s
 stdDirectoryConv fulldir s
-    | dir `elem` [".darcs", ".git"] = (Skip, s)
+    | dir `elem` [".darcs", ".git", "dist"] = (Skip, s)
     | otherwise = (Cont, s)
   where dir = last (splitPath fulldir)
 
