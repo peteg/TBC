@@ -67,9 +67,11 @@ tbc -v
 for a verbose session.
 
 It seems that the parts of Cabal that TBC depends on change
-frequently. TBC has only been tested with the latest Cabal (>= 1.7)
-from the darcs repository. It is probably not difficult to make it
-work with earlier Cabals.
+frequently. TBC has only been tested with Cabal-1.10.1.0 in the
+Haskell Platform 2011.2.0.1.
+
+It is probably not difficult to make it work with other Cabals. Mostly
+this involves copying out the guts of some of the Cabal modules.
 
 Conventions must retain the full name of the test, otherwise we run
 into some nasty lexical issues, e.g. to avoid:
@@ -85,6 +87,7 @@ We only support GHCi on *NIX (including OS X) presently.
 0.0.2
   The tbc binary exits with status 1 if anything goes wrong, 0 otherwise
   Fixed GHCi scoping issue (say ":l *filename" instead of ":l filename" - perhaps new with GHC 7.
+  Andy Morris: support for Bird tracks
   Works with the Haskell Platform 2011.2.0.1
    - GHC 7.0.3
    - QuickCheck 2

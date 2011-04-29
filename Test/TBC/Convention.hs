@@ -157,20 +157,18 @@ oktest _ = Nothing
 
 ----------------------------------------
 
--- | We might need to remove bird tracks from an lhs file.
-unlittest :: TestConvention -> TestConvention
-unlittest c ('>':ln) = c $ dropWhile isSpace ln
-unlittest c ln       = c ln
-
-----------------------------------------
-
 std :: Conventions s
 std = Conventions
       { cDirectory = stdDirectoryConv
       , cTestFile = stdTestFileConv
-      , cTests = map unlittest tests ++ tests
+      , cTests = map unlittest tests
       }
   where
+    -- We might need to remove bird tracks from an lhs file.
+    unlittest :: TestConvention -> TestConvention
+    unlittest c ('>':ln) = c $ dropWhile isSpace ln
+    unlittest c ln       = c ln
+
     tests = [booltest, exception, hunit, oktest, quickcheck]
 
 {-

@@ -49,6 +49,10 @@ ghci verbosity cmd flags =
          <- runInteractiveProcess cmd flags Nothing Nothing -- FIXME
 
      -- Configure GHCi a bit FIXME
+     -- FIXME this doesn't help if GHCi craps out before we get a prompt
+     -- e.g. if the package flags are wrong. This can happen if the package
+     -- hash changes but not the version number.
+     -- Perhaps we need a dup2 wrapper...
      hPutStrLn hin ":set prompt \"\""
      hPutStrLn hin "GHC.Handle.hDuplicateTo System.IO.stdout System.IO.stderr"
 
@@ -87,7 +91,8 @@ ghci_sync verbosity hin hout inp =
      -- Tests + sync
      hPutStr hin inp
      hPutStr hin hc_sync_print
-     hFlush hin
+     -- This can fail if GHCi has died.
+     hFlush hin `catch` ghciDiedEH outMVar
 
      -- Synchronize
      hc_output <- lint_output `liftM` takeMVar outMVar
@@ -111,8 +116,16 @@ ghci_sync verbosity hin hout inp =
     hc_sync h = sync
         where
           sync =
-              do l <- hGetLine h
-                 info verbosity $ "hc>> " ++ l -- FIXME should be "debug"
-                 if done `isInfixOf` l
+              do eof <- hIsEOF h
+                 if eof
                    then return []
-                   else (l:) `liftM` sync
+                   else do l <- hGetLine h
+                           info verbosity $ "hc>> " ++ l -- FIXME should be "debug"
+                           if done `isInfixOf` l
+                             then return []
+                             else (l:) `liftM` sync
+
+    ghciDiedEH outMVar e =
+      do hc_output <- takeMVar outMVar
+         putStr $ unlines ( ">> GHCi died. Output <<" : hc_output )
+         ioError e
