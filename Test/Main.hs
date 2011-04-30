@@ -1,5 +1,5 @@
 {- Test By Convention: executable top-level.
- - Copyright   :  (C)opyright 2009 {mwotton, peteg42} at gmail dot com
+ - Copyright   :  (C)opyright 2009-2011 {mwotton, peteg42} at gmail dot com
  - License     :  BSD3
  -}
 module Main ( main ) where
