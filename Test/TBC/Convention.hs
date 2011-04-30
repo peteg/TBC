@@ -60,10 +60,12 @@ stdTestFileConv f s
 -------------------------------------------------------------------
 
 findException :: [String] -> Bool
+findException [] = False
 findException ls = "*** Exception:" `isPrefixOf` last ls
                    || "_exception ::" `isPrefixOf` last ls
 
 findTrue :: [String] -> Bool
+findTrue [] = False
 findTrue ls = show True == last ls
 
 ----------------------------------------
@@ -116,6 +118,7 @@ hunit a@('h':'u':'n':'i':'t':'_':_) = Just run_hunit_all
                       then TestResultSuccess
                       else TestResultFailure r
 
+    findOK [] = False
     findOK ls = "errors = 0, failures = 0" `isInfixOf` last ls
 
 hunit _ = Nothing
@@ -134,6 +137,7 @@ quickcheck a@('p':'r':'o':'p':'_':_) = Just run_quickcheck_test
                     else TestResultFailure r
 
     -- FIXME what's going on here?
+    findOK [] = False
     findOK ls = ", passed" `isInfixOf` last ls
 
 quickcheck _ = Nothing

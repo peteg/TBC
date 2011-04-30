@@ -30,7 +30,7 @@ Within a test file, lines beginning with _ should _ when evaluated:
 "exception_" / throw an exception.
 "hunit_" / be HUnit tests: TBC applies "runTestTT . test" to them.
 "ok_" / not throw an exception.
-"prop_" / be QuickCheck tests: TBC applies "test" to them.
+"prop_" / be QuickCheck tests: TBC applies "Test.QuickCheck.quickCheck" to them.
 "test_" / be boolean tests (of type Bool or IO Bool or IO () with a
 print statement or ...): TBC runs them and expects the final line of
 output to be "True".
