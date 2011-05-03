@@ -24,7 +24,7 @@ source-repository head
   location: git://github.com/peteg/TBC.git
 
 Library
-  Build-depends: base >= 4 && < 5, Cabal >= 1.10 && < 2, directory, filepath, process
+  Build-depends: base >= 4 && < 5, Cabal >= 1.10 && < 2, deepseq, directory, filepath, process
   Extensions:
   Ghc-options: -Wall
   Exposed-Modules: Test.TBC

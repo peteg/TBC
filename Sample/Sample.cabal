@@ -12,8 +12,9 @@ Description:
 
  Sample project for testing our test framework
 
+-- FIXME don't need to Build-depends on TBC.
 Library
-  Build-depends: TBC, base, QuickCheck >= 2 && < 3
+  Build-depends: base, QuickCheck >= 2 && < 3
   Extensions:
   Ghc-options: -Wall
   Exposed-Modules: Sample, Uncompilable

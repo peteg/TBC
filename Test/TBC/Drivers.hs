@@ -42,8 +42,9 @@ ghci :: Verbosity
      -> [String] -- ^ flags
      -> IO Driver
 ghci verbosity cmd flags =
-  do debug verbosity $
-       unlines [ "system $ " ++ cmd ++ " " ++ concat [ ' ' : a | a <- flags ]
+  do let extra_flags = [] -- ["-package", "deepseq"]
+     debug verbosity $
+       unlines [ "system $ " ++ cmd ++ " " ++ concat [ ' ' : a | a <- flags ++ extra_flags ]
                , "----------------------------------------" ]
      (hin, hout, herr, hpid)
          <- runInteractiveProcess cmd flags Nothing Nothing -- FIXME
@@ -55,6 +56,9 @@ ghci verbosity cmd flags =
      -- Perhaps we need a dup2 wrapper...
      hPutStrLn hin ":set prompt \"\""
      hPutStrLn hin "GHC.Handle.hDuplicateTo System.IO.stdout System.IO.stderr"
+     -- adding "-package deepseq" to the commandline doesn't seem to work (GHC 7.0.3, OS X)
+     -- but this does.
+     hPutStrLn hin ":s -package deepseq"
 
      -- We don't use GHCi's stderr, get rid of it.
      -- FIXME we maybe have to drain it first.
@@ -62,9 +66,9 @@ ghci verbosity cmd flags =
 
      let load_file f =
            do cout <- ghci_sync verbosity hin hout (":l *" ++ f ++ "\n")
-              if not (null cout) && "Ok, modules loaded" `isInfixOf` last cout
-                then return []
-                else return cout
+              return $ if not (null cout) && "Ok, modules loaded" `isInfixOf` last cout
+                         then []
+                         else cout
 
      return $ MkDriver
                 { hci_send_cmd = ghci_sync verbosity hin hout

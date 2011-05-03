@@ -90,7 +90,7 @@ booltest _ = Nothing
 
 ----------------------------------------
 
--- | The test should throw an exception.
+-- | The @seq@'d test should throw an exception.
 exception :: TestConvention
 exception a@('e':'x':'c':'e':'p':'t':'i':'o':'n':_) = Just run_exception
   where
@@ -103,6 +103,22 @@ exception a@('e':'x':'c':'e':'p':'t':'i':'o':'n':_) = Just run_exception
                     else TestResultFailure r
 
 exception _ = Nothing
+
+----------------------------------------
+
+-- | The @deepseq@'d test should throw an exception.
+deep_exception :: TestConvention
+deep_exception a@('d':'e':'e':'p':'_':'e':'x':'c':'e':'p':'t':'i':'o':'n':_) = Just run_exception
+  where
+    name = mkTestName a
+
+    run_exception d =
+      do r <- hci_send_cmd d $ "Control.DeepSeq.deepseq " ++ name ++ " ()\n"
+         return $ if findException r
+                    then TestResultSuccess
+                    else TestResultFailure r
+
+deep_exception _ = Nothing
 
 ----------------------------------------
 
@@ -144,8 +160,7 @@ quickcheck _ = Nothing
 
 ----------------------------------------
 
--- | The test should terminate without throwing an exception.
--- FIXME we really need a DeepSeq here to be sure.
+-- | The @seq@'d test should terminate without throwing an exception.
 oktest :: TestConvention
 oktest a@('o':'k':_) = Just run_oktest
   where
@@ -161,6 +176,22 @@ oktest _ = Nothing
 
 ----------------------------------------
 
+-- | The @deepseq@'d test should terminate without throwing an exception.
+deep_oktest :: TestConvention
+deep_oktest a@('d':'e':'e':'p':'_':'o':'k':_) = Just run_oktest
+  where
+    name = mkTestName a
+
+    run_oktest d =
+      do r <- hci_send_cmd d $ "Control.DeepSeq.deepseq " ++ name ++ " True\n"
+         return $ if findTrue r
+                    then TestResultSuccess
+                    else TestResultFailure r
+
+deep_oktest _ = Nothing
+
+----------------------------------------
+
 std :: Conventions s
 std = Conventions
       { cDirectory = stdDirectoryConv
@@ -173,7 +204,7 @@ std = Conventions
     unlittest c ('>':ln) = c $ dropWhile isSpace ln
     unlittest c ln       = c ln
 
-    tests = [booltest, exception, hunit, oktest, quickcheck]
+    tests = [booltest, deep_exception, exception, hunit, deep_oktest, oktest, quickcheck]
 
 {-
 FIXME

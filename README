@@ -58,6 +58,14 @@ directory and its children.
 Presently it is best to run 'tbc' in the directory containing the
 tests (or a subdirectory of it).
 
+The Sample/ directory contains a sample project. After installing TBC:
+
+$ cd Sample
+$ runghc Setup configure
+$ tbc
+$ cd Tests
+$ tbc
+
 == Gotchas ==
 
 Say:
@@ -79,6 +87,18 @@ into some nasty lexical issues, e.g. to avoid:
 hunit_prop_blah =tName equals= prop_blah
 
 We only support GHCi on *NIX (including OS X) presently.
+
+This:
+
+$ tbc
+>> GHCi died. Output <<
+GHCi, version 7.0.3: http://www.haskell.org/ghc/  :? for help
+TBC: fd:4: hFlush: resource vanished (Broken pipe)
+
+probably means that you need to reconfigure your project as one of
+libraries it depends on has a different hash but not a new version
+number. (For example, Cabal calls QuickCheck-2.4.0.1 the
+overly-specific QuickCheck-2.4.0.1-5898cfb0116fc1d6ecef04b3f053c323.)
 
 == Changes ==
 
