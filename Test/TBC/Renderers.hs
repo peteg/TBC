@@ -114,8 +114,9 @@ quiet verbosity =
   where
     tid t = show (tLocation t) ++ " " ++ tName t
 
-    tcf f _ts _cout s =
+    tcf f _ts cout s =
       do putStrLn $ "** Compilation failed: " ++ f
+         mapM_ putStrLn cout
          return s{ tsCompilationFailures = tsCompilationFailures s + 1 }
 
     tskip f s =

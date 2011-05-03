@@ -71,7 +71,7 @@ ghci verbosity cmd flags =
                 , hci_load_file = load_file
                 , hci_kill = terminateProcess hpid
                 , hci_close = do hPutStr hin ":quit\n"
-                                 hFlush hin
+                                 hFlush hin `catch` const (return ()) -- FIXME if GHCi is dead already that's fine by us.
                                  waitForProcess hpid
                 }
 
