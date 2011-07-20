@@ -26,7 +26,7 @@ module Test.TBC.Convention
 
 import Data.List -- ( isPrefixOf )
 import Data.Char (isSpace)
-import System.FilePath ( splitPath, takeExtension )
+import System.FilePath ( splitPath, takeExtension, takeFileName )
 
 import Test.TBC.Drivers ( Driver(..) )
 import Test.TBC.Core
@@ -35,8 +35,8 @@ import Test.TBC.Core
 -- Directory conventions.
 -------------------------------------------------------------------
 
--- | Skip the @.darcs@ and @.git@ directories.
--- FIXME also skip Cabal's @dist@ directory.
+-- | Skip @.darcs@ and @.git@ directories, and Cabal's @dist@
+-- directory.
 -- FIXME could imagine trying to skip subproject directories.
 stdDirectoryConv :: DirectoryConvention s
 stdDirectoryConv fulldir s
@@ -48,8 +48,10 @@ stdDirectoryConv fulldir s
 -- TestFile conventions.
 -------------------------------------------------------------------
 
+-- | Skip Cabal's @Setup.hs@.
 stdTestFileConv :: TestFileConvention s
 stdTestFileConv f s
+    | takeFileName f == "Setup.hs" = (Skip, s)
     | ext `elem` [".hs", ".lhs"] = (Cont, s)
     | otherwise = (Skip, s)
   where
