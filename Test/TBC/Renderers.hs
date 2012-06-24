@@ -44,6 +44,7 @@ success :: TapState -> Bool
 success s = tsPassed s == tsRun s && tsCompilationFailures s == 0
 
 
+-- | A TAP generator (noisy).
 tap :: Renderer TapState
 tap verbosity =
     RenderFns

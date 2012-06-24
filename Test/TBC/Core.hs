@@ -56,6 +56,7 @@ data Location
       , lColumn :: Int
       }
 
+-- | Construct a location.
 mkLocation :: FilePath -> Int -> Int -> Location
 mkLocation = Location
 
@@ -81,11 +82,11 @@ data Test
 
 -- | The result of a single 'Test'.
 data Result
-    = TestResultSkip -- ^ FIXME Skip this test
-    | TestResultToDo -- ^ This test is not yet done
-    | TestResultStop -- ^ FIXME Stop testing
-    | TestResultSuccess
-    | TestResultFailure { msg :: [String] }
+    = TestResultSkip -- ^ Skip this test.
+    | TestResultToDo -- ^ This test has not yet been written.
+    | TestResultStop -- ^ Cease testing.
+    | TestResultSuccess -- ^ The test succeeded.
+    | TestResultFailure { msg :: [String] } -- ^ The test failed with this explanation.
       deriving (Show)
 
 -------------------------------------------------------------------
@@ -96,21 +97,23 @@ data Result
 -- tells the user of various events.
 type Renderer s = Verbosity -> RenderFns s
 
+-- | The collection of rendering functions.
 data RenderFns s
     = RenderFns
-      { rInitialState :: IO s
-      , rCompilationFailure :: FilePath -- ^ TestFile
-                            -> [Test] -- ^ Tests in the file
-                            -> [String] -- ^ Output from the Haskell system
+      { rInitialState :: IO s -- ^ Allocate a new test state.
+      , rCompilationFailure :: FilePath
+                            -> [Test]
+                            -> [String] -- The arguments are the TestFile, the Tests in the file and the accumulator state.
                             -> s
-                            -> IO s
-      , rSkip :: FilePath -> s -> IO s -- FIXME refine: skipped a file, skipped some tests, some tests told us to skip, ...
-      , rStop :: FilePath -> s -> IO s
+                            -> IO s -- ^ Render a compilation failure.
+        -- FIXME refine: skipped a file, skipped some tests, some tests told us to skip, ...
+      , rSkip :: FilePath -> s -> IO s -- ^ Render a skipped directory or file.
+      , rStop :: FilePath -> s -> IO s -- ^ Handle being told to stop.
       , rTest :: Test
               -> s
               -> Result
-              -> IO s
-      , rFinal :: s -> IO ExitCode
+              -> IO s -- ^ Execute a test and render its result.
+      , rFinal :: s -> IO ExitCode -- ^ Yield an 'ExitCode' depending on how the tests went.
       }
 
 -------------------------------------------------------------------
@@ -118,8 +121,12 @@ data RenderFns s
 -- FIXME some might like some IO's sprinkled in here.
 -------------------------------------------------------------------
 
--- | FIXME
-data Action = Stop | Skip | Cont
+-- | An /action/ tells TBC what to do when it (recursively) encounters
+-- a directory or file.
+data Action
+  = Stop -- ^ Cease testing.
+  | Skip -- ^ Skip this file or directory.
+  | Cont -- ^ Process this file or directory.
 
 -- | A /directory convention/ maps a directory name into an action.
 type DirectoryConvention s = FilePath -> s -> (Action, s)
@@ -134,9 +141,9 @@ type TestConvention = String -> Maybe (Driver -> IO Result)
 -- | A collection of conventions.
 data Conventions s
     = Conventions
-      { cDirectory :: DirectoryConvention s
-      , cTestFile :: TestFileConvention s
-      , cTests :: [TestConvention]
+      { cDirectory :: DirectoryConvention s -- ^ The directory convention.
+      , cTestFile :: TestFileConvention s -- ^ The filename convention.
+      , cTests :: [TestConvention] -- ^ The test conventions.
       }
 
 -------------------------------------------------------------------

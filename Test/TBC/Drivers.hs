@@ -1,5 +1,5 @@
-{- Test By Convention: Drivers.
- - Copyright   :  (C)opyright 2009-2011 {mwotton, peteg42} at gmail dot com
+{- | Test By Convention: Drivers.
+ - Copyright   :  (C)opyright 2009-2012 {mwotton, peteg42} at gmail dot com
  - License     :  BSD3
  -}
 module Test.TBC.Drivers
@@ -10,6 +10,9 @@ module Test.TBC.Drivers
 -------------------------------------------------------------------
 -- Dependencies.
 -------------------------------------------------------------------
+
+import Prelude hiding ( catch )
+import Control.Exception ( catch, SomeException )
 
 import Control.Concurrent -- ( forkIO )
 import Control.Monad ( liftM )
@@ -28,15 +31,15 @@ import System.Process ( runInteractiveProcess, waitForProcess, terminateProcess 
 -- | Interaction with a Haskell system.
 data Driver
     = MkDriver
-      { hci_send_cmd :: String -> IO [String] -- ^ FIXME exec and return lines of response
-      , hci_load_file :: String -> IO [String] -- ^ FIXME load a file
-      , hci_kill :: IO () -- ^ Terminate with prejudice
-      , hci_close :: IO ExitCode -- ^ Clean exit
+      { hci_send_cmd :: String -> IO [String] -- ^ Execute the given Haskell code and return the response as a list of lines.
+      , hci_load_file :: String -> IO [String] -- ^ Load a file into the Haskell system.
+      , hci_kill :: IO () -- ^ Terminate with prejudice.
+      , hci_close :: IO ExitCode -- ^ Clean exit.
       }
 
 ----------------------------------------
 
--- | GHCi driver, slave process.
+-- | A driver for @GHCi@ using a slave process.
 ghci :: Verbosity
      -> String -- ^ ghci command name
      -> [String] -- ^ flags
@@ -62,7 +65,8 @@ ghci verbosity cmd flags =
 
      -- We don't use GHCi's stderr, get rid of it.
      -- FIXME we maybe have to drain it first.
-     hClose herr
+     -- GHC 7.4.1 dies if we do this.
+     -- hClose herr
 
      let load_file f =
            do cout <- ghci_sync verbosity hin hout (":l *" ++ f ++ "\n")
@@ -75,10 +79,11 @@ ghci verbosity cmd flags =
                 , hci_load_file = load_file
                 , hci_kill = terminateProcess hpid
                 , hci_close = do hPutStr hin ":quit\n"
-                                 hFlush hin `catch` const (return ()) -- FIXME if GHCi is dead already that's fine by us.
+                                 hFlush hin `catch` (const (return ()) :: (SomeException -> IO ())) -- FIXME if GHCi is dead already that's fine by us.
                                  waitForProcess hpid
                 }
 
+-- | Crudely synchronise with the slave process.
 ghci_sync :: Verbosity
           -> Handle -> Handle -> String -> IO [String]
 ghci_sync verbosity hin hout inp =

@@ -1,5 +1,5 @@
 {- Test By Convention: executable top-level.
- - Copyright   :  (C)opyright 2009-2011 {mwotton, peteg42} at gmail dot com
+ - Copyright   :  (C)opyright 2009-2012 {mwotton, peteg42} at gmail dot com
  - License     :  BSD3
  -}
 module Main ( main ) where
@@ -29,7 +29,8 @@ import System.FilePath -- ( takeDirectory ) -- FIXME
 
 import qualified System.Console.GetOpt as GetOpt
 
-import Test.TBC
+import Test.TBC ( Verbosity, deafening, debug, info, normal, notice
+                , tbcCabal )
 
 -------------------------------------------------------------------
 -- TBC-as-an-executable.

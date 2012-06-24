@@ -1,5 +1,5 @@
-{- Test By Convention: the conventions themselves.
- - Copyright   :  (C)opyright 2009 {mwotton, peteg42} at gmail dot com
+{- | Test By Convention: the conventions themselves.
+ - Copyright   :  (C)opyright 2009-2012 {mwotton, peteg42} at gmail dot com
  - License     :  BSD3
  -
  - Idea is to apply each of these tests to each line of a 'TestFile'
@@ -17,7 +17,7 @@ module Test.TBC.Convention
 --     , convention_mainPlannedTestSuite
 --     , convention_mainTestGroup
 --     , convention_main
-    , std
+    , stdDirectoryConv, stdTestFileConv, std
     ) where
 
 -------------------------------------------------------------------
@@ -37,7 +37,8 @@ import Test.TBC.Core
 
 -- | Skip @.darcs@ and @.git@ directories, and Cabal's @dist@
 -- directory.
--- FIXME could imagine trying to skip subproject directories.
+--
+-- Could also imagine skipping subproject directories.
 stdDirectoryConv :: DirectoryConvention s
 stdDirectoryConv fulldir s
     | dir `elem` [".darcs", ".git", "dist"] = (Skip, s)
@@ -74,9 +75,10 @@ findTrue ls = show True == last ls
 
 -- | The test should yield the string 'True'. This should work for
 -- tests of type @Bool@, @IO Bool@, @IO ()@ with a @putStrLn@, ...
--- Note the 'seq' is not entirely useless: the test may use
--- 'unsafePerformIO' or 'trace' to incidentally output things after
--- 'True'.
+--
+-- Note the 'seq' in its implementation is not entirely useless: the
+-- test may use 'unsafePerformIO' or 'trace' to incidentally output
+-- things after 'True'.
 booltest :: TestConvention
 booltest a@('t':'e':'s':'t':'_':_) = Just run_booltest
   where
@@ -92,7 +94,7 @@ booltest _ = Nothing
 
 ----------------------------------------
 
--- | The @seq@'d test should throw an exception.
+-- | The 'seq'ed test should throw an exception.
 exception :: TestConvention
 exception a@('e':'x':'c':'e':'p':'t':'i':'o':'n':_) = Just run_exception
   where
@@ -143,6 +145,8 @@ hunit _ = Nothing
 
 ----------------------------------------
 
+-- | A QuickCheck test. We use the 'Test.QuickCheck.quickCheck'
+-- driver, i.e., the default settings.
 quickcheck :: TestConvention
 quickcheck a@('p':'r':'o':'p':'_':_) = Just run_quickcheck_test
   where
@@ -194,6 +198,7 @@ deep_oktest _ = Nothing
 
 ----------------------------------------
 
+-- | The standard set of conventions.
 std :: Conventions s
 std = Conventions
       { cDirectory = stdDirectoryConv

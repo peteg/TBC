@@ -1,12 +1,12 @@
 {- Test By Convention: Top-level drivers.
- - Copyright   :  (C)opyright 2009-2011 {mwotton, peteg42} at gmail dot com
+ - Copyright   :  (C)opyright 2009-2012 {mwotton, peteg42} at gmail dot com
  - License     :  BSD3
  -}
 module Test.TBC
-    ( -- * FIXME Conventions, data structures.
-      module Conv
-    , module Core
-    , module Drivers
+    ( -- * Conventions and data structures.
+      module Test.TBC.Convention
+    , module Test.TBC.Core
+    , module Test.TBC.Drivers
 
       -- * Top-level drivers.
     , tbc
@@ -18,6 +18,9 @@ module Test.TBC
 -------------------------------------------------------------------
 -- Dependencies.
 -------------------------------------------------------------------
+
+import Prelude hiding ( catch )
+import Control.Exception ( catch, SomeException )
 
 import System.Exit ( ExitCode(ExitFailure), exitFailure, exitWith )
 import System.FilePath ( (</>), replaceExtension )
@@ -34,17 +37,21 @@ import Distribution.Simple.LocalBuildInfo ( LocalBuildInfo, buildDir, withLibLBI
 import Distribution.Simple.Program ( ghcProgram, lookupProgram, programPath )
 import Distribution.Text ( display )
 
+-- FIXME This is what we want to say:
 import Test.TBC.Convention as Conv
 import Test.TBC.Drivers as Drivers
 import Test.TBC.Renderers as Renderers
 import Test.TBC.Core as Core
+-- ... but Haddock doesn't understand (Haskell Platform 2012.2.0.0), so...
+import Test.TBC.Convention
+import Test.TBC.Drivers
+import Test.TBC.Core
 
 -------------------------------------------------------------------
 -- TBC-as-a-library.
 -------------------------------------------------------------------
 
--- | FIXME Bells and whistles driver.
--- FIXME invoke the renderer functions appropriately.
+-- | A parametrised bells-and-whistles driver.
 tbcWithHooks :: Conventions s -> RenderFns s -> Driver -> [FilePath] -> IO ExitCode
 tbcWithHooks convs renderer driver testRoots =
   (      rInitialState renderer
@@ -52,9 +59,10 @@ tbcWithHooks convs renderer driver testRoots =
      >>= rFinal renderer
   ) `catch` handler
   where
+    handler :: SomeException -> IO ExitCode
     handler e = putStrLn ("TBC: " ++ show e) >> return (ExitFailure 1)
 
--- | FIXME Conventional driver.
+-- | A hardwired (conventional) driver.
 tbc :: Driver -> [FilePath] -> IO ()
 tbc driver testRoots =
        tbcWithHooks Conv.std (Renderers.quiet Core.normal) driver testRoots
@@ -64,14 +72,21 @@ tbc driver testRoots =
 -- Cabal support.
 ----------------------------------------
 
--- | Drop-in replacement for Cabal's 'Distribution.Simple.defaultMain'.
+-- | This is a drop-in replacement for Cabal's
+-- 'Distribution.Simple.defaultMain'.
+--
+-- However the test infrastructure in Cabal has changed since this was
+-- written, and its use is discouraged. Use the TBC binary instead.
 defaultMain :: IO ()
 defaultMain = DS.defaultMainWithHooks hooks
     where hooks = DS.simpleUserHooks { DS.runTests = tbcCabal normal }
 
 -- | A driver compatible with Cabal's 'runTests' hook.
--- FIXME generalise to Hugs, etc.
--- FIXME how do we get flags? Verbosity?
+--
+-- However the test infrastructure in Cabal has changed since this was
+-- written, and its use is discouraged. Use the TBC binary instead.
+--
+-- This is used by the TBC binary.
 tbcCabal :: Verbosity
          -> DS.Args -- ^ Where are the tests (dirs and files)?
          -> Bool -> PackageDescription -> LocalBuildInfo -> IO ()
